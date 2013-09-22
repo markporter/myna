@@ -54,8 +54,9 @@ var $cookie={
 		Options:
 			domain			-	*Default null* 
 								Domain to share the cookie with. If set, 
-								the browser will send this cookie to any page in this domain 
-								that matches path.
+								the browser will send this cookie to any page in this domain
+								or sub domains that matches path. Must start with a dot, 
+								e,g, ".mynjs.org"
 								
 			path			-	*Default null*
 								Start path of page that the cookie should be sent to.
@@ -65,8 +66,17 @@ var $cookie={
 								in seconds; if negative, means the cookie is not stored; if zero, 
 								deletes the cookie
 								
+			httpOnly		-	*Default true*
+								Should this cookie be invisible to browser JavaScript?
+
+			secure			-	*Default false*
+								Should this cookie only be sent via SSL?
 		Returns:	
 			_value_
+
+		See:
+		* https://www.owasp.org/index.php/HttpOnly
+
 	*/
 	set:function(name,value,options){
 		if (!$server.response ) return undefined; //don't bother if we can't send cookies
@@ -75,13 +85,17 @@ var $cookie={
 		options.setDefaultProperties({
 			domain:null,
 			expireSeconds:-1,	//an integer specifying the maximum age of the cookie in seconds; if negative, means the cookie is not stored; if zero, deletes the cookie
-			path:null
+			path:null,
+			secure:false,
+			httpOnly:true
 		})
 		
 		var cookie = new Packages.javax.servlet.http.Cookie(name,value);
 		cookie.setMaxAge(options.expireSeconds);
 		if (options.domain !== null) cookie.setDomain(options.domain);
 		if (options.path !== null) cookie.setPath(options.path);
+		cookie.setHttpOnly(!!options.httpOnly);
+		cookie.setSecure(!!options.secure);
 		
 		$server.response.addCookie(cookie);
 		if (!("_PENDING_COOKIES_" in $req)) $req._PENDING_COOKIES_ ={}
@@ -111,7 +125,10 @@ var $cookie={
 			the user_id in the cookie, or null if there is no cookie. 
 			
 	*/
-	setAuthUserId:function(user_id){
+	setAuthUserId:function(user_id,cookieOptions){
+		if (!cookieOptions) cookieOptions={};
+		if (!cookieOptions.path) cookieOptions.path=$application.url;
+
 		$cookie.__AUTH_USER_ID__ = user_id;
 		var cookie_data=Myna.Permissions.getAuthToken(
 			user_id,
@@ -122,11 +139,8 @@ var $cookie={
 			ts:new Date().getTime()
 		}.toJson()
 		.encrypt(Myna.Permissions.getAuthKey("myna_auth_cookie"))*/
-   
-		var options ={
-			path:$application.url
-		}
-		$cookie.set("myna_auth_cookie",cookie_data,options);
+		
+		$cookie.set("myna_auth_cookie",cookie_data,cookieOptions);
 		$cookie.__authCleared = false;
 	},
 	/* Function: clearAuthUserId
