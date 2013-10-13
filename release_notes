@@ -1,3 +1,30 @@
+Release Name: 1.10.0
+============================
+Notes: Bugfixes and minor features
+
+* **[ADD]**         Added more logging feedback to startup
+* **[ADD]**         Added startup delay to cronThread to prevent memory errors during startup
+* **[ADD]**         Added Lifecycle functions to DataManager and OrmTemplate:
+	                  * afterCreate:function (bean) {},
+	                  * afterLoad:function (bean) {},
+	                  * afterRemove:function (id) {}
+	                  * afterSaveField:function (bean,fieldName,newValue,oldValue) {},
+	                  * afterSetField:function (bean,fieldName,newValue,oldValue) {},
+	                  * beforeCreate:function (data) {},
+	                  * beforeLoad:function (data) {},
+	                  * beforeRemove:function (id) {},
+	                  * beforeSaveField:function (bean,fieldName,newValue,oldValue) {},
+	                  * beforeSetField:function (bean,fieldName,newValue,oldValue) {},
+* **[ADD]**         **FlightPath**: Controller.addLayout and .setLayout now support a Myna.File parameter pointing to a layout file anywhere in the filesystem
+* **[ADD]**         added support for secure and httpOnly flags to $cookie.set
+* **[CHANGE]**      Logging changes: force logs to either be selected logger, or standard out as fallback
+* **[CHANGE]**      upgrade_tables only inspects myna_log if log_engine == "myna_log"
+* **[FIX]**         **FlightPath** bug in non-db models when validating
+* **[FIX]**         Bug in DataManager TreeManager.remove
+* **[FIX]**         Administrator > DBManager: fixed myna code generation to refer to "db" rather than "dm"
+* **[SECURITY]**    ejs and sjs files will no longer be served to the browser from flightpath static folder. This only affects applications that upgrade their flightpath folders via Add/Update Flightpath App in the Myna Administrator
+
+----------------------------------------------------------
 Release Name: 1.9.22
 ============================
 Notes: bugfixes
