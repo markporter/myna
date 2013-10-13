@@ -197,7 +197,8 @@
 	adds a layout layer to this this request
 	
 	Parameters:
-		layout  -	String. Layout name, or path relative to app/layouts
+		layout  -	String. Layout name, path relative to app/layouts, or <Myna.File> pointing 
+					to a specific layout file
 		
 	This layout will in included after the global default layout, the controller 
 	default layout, and any previously defined layouts for this controller 
@@ -214,8 +215,9 @@
 	Sets a single layout layer to this this request, clearing any existing layouts
 	
 	Parameters:
-	layout		-	String or Boolean. Layout name, or path relative to 
-						app/layouts, or false to disable all layouts
+	layout		-	String,Myna.File,False. 
+					Layout name, path relative to app/layouts, <Myna.File> pointing 
+					to a specific layout file, or false to disable all layouts
 						
 	Detail:
 		disables global and controller default layouts. If _layout_ is a layout 
@@ -877,10 +879,11 @@
 			
 			//include any defined layouts
 			this.layouts.reverse().forEach(function(layout){
-				
-				var path = $application.directory +"app/views/layouts/" + layout
-				if (!/.[e|s]js$/.test(path)) path += ".ejs"
-				layout = new Myna.File(path)
+				if (!(layout instanceof Myna.File)){
+					var path = $application.directory +"app/views/layouts/" + layout
+					if (!/.[e|s]js$/.test(path)) path += ".ejs"
+					layout = new Myna.File(path)
+				}
 				
 				if (layout.exists()){
 					scope.$page.content = $res.clear()
