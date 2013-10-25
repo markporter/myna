@@ -202,7 +202,7 @@ Myna.Admin ={
 					});
 			});
 		},
-	/* Function: test
+	/* Function: Myna.Admin.ds.test
 		tests connecting to the named DS and returns a <Myna.ValidationResult>
 	
 		Parameters:
@@ -223,8 +223,7 @@ Myna.Admin ={
 				)
 			} catch (e){
 				ret.addError(
-					String(e),
-					"name"
+					String(e)
 				)
 			}
 			if (ret.success){
@@ -332,7 +331,7 @@ Myna.Admin ={
 			
 			if (v.success){
 				Myna.saveProperties(config, $server.rootDir + "WEB-INF/myna/ds/" + config.name.toLowerCase()+ ".ds");
-				$server_gateway.loadDataSource(new Myna.File($server.rootDir + "WEB-INF/myna/ds/" + config.name + ".ds").javaFile,true);
+				this.test(config.name)
 			}
 			
 			return v;

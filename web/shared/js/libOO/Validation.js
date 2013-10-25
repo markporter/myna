@@ -654,7 +654,7 @@ if (!Myna) var Myna={}
 			work.forEach(function(validatorDef){
 				params.options = validatorDef.options || {};
 				try{
-					vr.merge(validatorDef.validator.call($this, params))
+					if (validatorDef.validator) vr.merge(validatorDef.validator.call($this, params))
 				}catch(e){
 					if (typeof $server_gateway == "undefined"){
 						//Don't flag as error client-side, just log

@@ -1002,7 +1002,7 @@ Date.formatInterval = function(interval,options){
 	
 	var parts={}
 	
-	var parts = Date.parseInterval(interval)
+	parts = Date.parseInterval(interval)
 	
 	$O(parts)
 	.filter(function(v,k,i){

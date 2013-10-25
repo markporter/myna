@@ -27,22 +27,9 @@ function remove(params){
 }
 /* ---------- save ---------------------------------------------------------- */
 function save(params){
-	var bean = this.model.get(params)
-	var ret= bean.save()
-	try {
-		$server_gateway.loadDataSource(new Myna.File($server.rootDir + "WEB-INF/myna/ds/" + name + ".ds").javaFile,true);
-		new Myna.Database(params.name);
-	} catch (e if (e.javaException instanceof java.lang.ClassNotFoundException)){
-		ret.addError(
-			"Connection failed for datasource '" + data.name +"' : The database driver '" + ds.driver + "' cannot be found in the classpath.",
-			"driver"
-		)
-	} catch (e){
-		ret.addError(
-			String(e),
-			"name"
-		)
-	}
+	var ds = this.model.get(params)
+	var ret= ds.save()
+	ret.merge(Myna.Admin.ds.test(ds.name))
 	return ret
 }
 

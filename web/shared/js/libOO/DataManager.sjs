@@ -6,7 +6,7 @@ if (!Myna) var Myna={}
 		Myna.DataManager is a dynamic Object-Relational Mapping (ORM) tool to 
 		simplify basic Create, Read, Update and Delete (CRUD) operations on 
 		database tables.
-   		
+  		
 		The basic concept is that for a given table Myna.DataManager can generate a
 		manager object that represents that table and knows how to create and 
 		delete rows. That manager can then generate a bean object that 
@@ -3104,7 +3104,7 @@ if (!Myna) var Myna={}
 									if (options.depthCol){
 										delete data[options.depthCol];
 									}
-									return; //this is not really a create, so no need to monkey with the tree	
+									return undefined; //this is not really a create, so no need to monkey with the tree	
 								}
 								
 								if (!location){
@@ -3422,7 +3422,7 @@ if (!Myna) var Myna={}
 								relatedBean.forEach(function(relatedBean){
 									if (!relatedBean.isDirty) {
 										return;
-									};
+									}
 									var relatedValidation = relatedBean.save()
 									v.merge(relatedValidation,alias +"."+relatedBean.id +".");
 									//bridge tables are a pain

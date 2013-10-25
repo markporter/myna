@@ -1136,12 +1136,16 @@ public class MynaThread implements java.lang.Runnable{
 	
 	public void loadDataSource(File path, boolean shouldTest) throws Exception{
 		String dsName = path.getName().substring(0,path.getName().length() -3).toLowerCase();
-		try{
+		//try{
 			Properties ds = new Properties();
 			ds.load(new java.io.FileInputStream(path));
 			
-			if (ds.getProperty("url") == null || ds.getProperty("url").length() == 0) throw new Exception("No url defined");
-			if (ds.getProperty("driver") == null || ds.getProperty("driver").length() == 0) throw new Exception("No driver defined");
+			if (ds.getProperty("url") == null || ds.getProperty("url").length() == 0) {
+				throw new Exception("No url defined for DataSource " + dsName);
+			}
+			if (ds.getProperty("driver") == null || ds.getProperty("driver").length() == 0) {
+				throw new Exception("No driver for DataSource " + dsName);
+			}
 			dataSources.put(dsName,ds);
 			
       /* special handling of file paths */
@@ -1194,11 +1198,11 @@ public class MynaThread implements java.lang.Runnable{
 			this.javaDataSources.put(dsName,bds);
 
 			
-		} catch(Exception e){
+		/*} catch(Exception e){
 			this.log("ERROR","Error Loading Datasource " + dsName +": " +e.getMessage(),e.toString());
 			
 			//throw new Exception("Error loading Datasource '" + dsName +"' : '" + e.getMessage() + "'");	
-		}
+		}*/
 	}
 	
 	/**

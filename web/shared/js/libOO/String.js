@@ -431,8 +431,8 @@
 		var s2 = str;
 		if (!s2 && s1.length) return false;
 		if (!caseSensitive){
-			var s1 = this.toLowerCase();
-			var s2 = str.toLowerCase();;
+			s1 = this.toLowerCase();
+			s2 = str.toLowerCase();;
 		}
 		return s1.right(s2.length) == s2
 	}
@@ -1680,8 +1680,8 @@
 		var s2 = str;
 		if (!s2 && s1.length) return false
 		if (!caseSensitive){
-			var s1 = this.toLowerCase();
-			var s2 = str.toLowerCase();;
+			s1 = this.toLowerCase();
+			s2 = str.toLowerCase();;
 		}
 		return s1.left(s2.length) == s2
 		

@@ -356,13 +356,22 @@ Ext.override(Ext.view.AbstractView, {
 							p.matchLocation();
 						},
 						ds_save:function(event){
+
 							var form = event.src.form;
+							form.findField("errors").setValue("");
+							form.findField("errors").hide();
 							this.saveDsForm(event.model,function(result){
 								if (result.success){
 									form.updateRecord(form.currentRecord);
-									form.close();	
+									form.close();
+									U.infoMsg(event.model.data.name + " connected successfully.")	
 								}else{
-									
+									if (result.errorDetail) {
+										form.findField("errors").setValue(result.errorDetail)
+										form.findField("errors").show();
+									}
+									form.markInvalid(result.errors);
+									//U.infoMsg(result)
 								}
 							});
 						}
@@ -558,6 +567,7 @@ Ext.override(Ext.view.AbstractView, {
 									loc.hide();
 									fp.matchLocation();
 									form.findField("driver").setValue(dbProperties[r[0].get("type")].driver);
+									form.findField("port").setValue(dbProperties[r[0].get("type")].port);
 								}
 							}	
 						}
@@ -632,7 +642,14 @@ Ext.override(Ext.view.AbstractView, {
 						};
 						
 						return f;
-					});	
+					}).concat([{
+						xtype:"displayfield",
+						name:"errors",
+						hidden:true,
+						fieldLabel:"Connection Errors",
+						style:"color:red",
+						width:300
+					}]);	
 					
 					this.callParent(arguments);
 					if (!this.current_record){
@@ -640,7 +657,11 @@ Ext.override(Ext.view.AbstractView, {
 					}
 					this.loadRecord(this.current_record);
 					this.matchLocation();
-					
+					this.on("beforegridload",function (fp,record) {
+						console.log(arguments)
+						fp.form.findField("name").setDisabled(!!record.data.name)
+							
+					})
 				}
 			});	
 		/* ----------- dsgrid ------------------------------------------------- */
