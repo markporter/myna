@@ -4,8 +4,8 @@ Notes:
 
 * **[CHANGE]**      DS names are no longer editable. This caused confusion when setting a new name caused a duplicate data source
 * **[CHANGE]**      Database errors during data source load are no longer suppressed
-* **[FIX]**         Editing data sources in Myna Adminstrator now properly warns when there are conenction errors
-* **[FIX]**         Several minor sysntax warnigns in String, Date and DataManager
+* **[FIX]**         Editing data sources in Myna Administrator now properly warns when there are connection errors
+* **[FIX]**         Several minor syntax warnings in String, Date and DataManager
 * **[FIX]**         Validations no longer error when a validator is not available
 
 ----------------------------------------------------------
