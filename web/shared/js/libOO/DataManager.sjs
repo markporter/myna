@@ -6,7 +6,7 @@ if (!Myna) var Myna={}
 		Myna.DataManager is a dynamic Object-Relational Mapping (ORM) tool to 
 		simplify basic Create, Read, Update and Delete (CRUD) operations on 
 		database tables.
-  		
+   		
 		The basic concept is that for a given table Myna.DataManager can generate a
 		manager object that represents that table and knows how to create and 
 		delete rows. That manager can then generate a bean object that 
@@ -1978,7 +1978,7 @@ if (!Myna) var Myna={}
 					}
 					return part.titleCap();
 				}).join("")
-			},
+			}
 			/* modelname-to-tablename */
 			Myna.DataManager.prototype.m2t=function(name){
 				var result =this.splitCap(name)
@@ -1987,7 +1987,7 @@ if (!Myna) var Myna={}
 				
 				return result.join("_")
 				
-			},
+			}
 			/* modelname-to-plural-modelname */
 			Myna.DataManager.prototype.m2pm=function(name){
 				var result = this.splitCap(name)
@@ -1997,7 +1997,7 @@ if (!Myna) var Myna={}
 					return part.titleCap()
 				}).join("")
 				
-			},
+			}
 			/* plural-modelname-to-modelname */
 			Myna.DataManager.prototype.pm2m=function(name){
 				var result = this.splitCap(name)
@@ -2012,7 +2012,7 @@ if (!Myna) var Myna={}
 			Myna.DataManager.prototype.pm2t=function(name){
 				return this.m2t(this.pm2m(name))
 				
-			},
+			}
 			/* modelname-to-foreignkeyname */
 			Myna.DataManager.prototype.m2fk=function(name){
 				var result = this.splitCap(name)
@@ -2020,7 +2020,7 @@ if (!Myna) var Myna={}
 				
 				return result.join("_")
 				
-			},
+			}
 			/* foreignKey-to-tablename */
 			Myna.DataManager.prototype.fk2t=function(name){
 				var result = name.toLowerCase().listBefore("_").split(/_/).map(function(part,index,array){
@@ -2030,7 +2030,7 @@ if (!Myna) var Myna={}
 					return part;
 				})
 				return result.join("_")
-			},
+			}
 		Myna.DataManager.managerClasses={}
 	/* ---------- getManager ------------------------------------------------- */
 		Myna.DataManager.prototype.getManager=function(table,options){
@@ -2043,7 +2043,7 @@ if (!Myna) var Myna={}
 			options.setDefaultProperties({
 				softDeleteCol:"deleted",
 				createdCol:"created",
-				modifiedCol:"modified",
+				modifiedCol:"modified"
 			})
 			
 			var name,alias=table;
@@ -2790,6 +2790,8 @@ if (!Myna) var Myna={}
 									var subTreeSize = (myRight - myLeft) +1
 									var newOffset;
 									
+
+									
 									/* 
 									first, remove this sub-tree from the world by 
 									setting negative sides 
@@ -2811,45 +2813,9 @@ if (!Myna) var Myna={}
 										}
 									})
 									
-									/* 
-									re-number the "right" values for nodes right of this one to backfill
-									*/
-									new Myna.Query({
-										ds:man.ds,
-										log:man.logQueries,
-										sql:<ejs>
-											update <%=man.table.sqlTableName%> set 
-											<%=rightCol%> = <%=rightCol%> - {size:bigint},
-											<%=leftCol%> = <%=leftCol%> - {size:bigint}
-											where
-											<%=leftCol%> > {myRight:bigint}
-										</ejs>,
-										values:{
-											myRight:myRight,
-											size:subTreeSize,
-										}
-									})
 									
-									/* 
-									re-number the "right" values for this nodes ancestors to backfill
-									*/
-									new Myna.Query({
-										ds:man.ds,
-										log:man.logQueries,
-										sql:<ejs>
-											update <%=man.table.sqlTableName%> set 
-											<%=rightCol%> = <%=rightCol%> - {size:bigint}
-											where
-											<%=leftCol%> < {myLeft:bigint}
-											and <%=rightCol%> > {myRight:bigint}
-										</ejs>,
-										values:{
-											myRight:myRight,
-											myLeft:myLeft,
-											size:subTreeSize,
-										}
-									})
-									
+									//backfill
+									$this.manager.renumberForDelete(myLeft,myRight);
 									
 									/* Calculate offset and renumberForInsert
 									
@@ -2896,7 +2862,13 @@ if (!Myna) var Myna={}
 													}
 												})
 											}
-											newOffset = anchorNode.data[leftCol] - myLeft						
+											newOffset = anchorNode.data[$this.manager.leftCol] - myLeft		
+											/*Myna.log("debug","{0} = {1} - {2} : {3}".format(
+												newOffset,
+												anchorNode.data[$this.manager.leftCol],
+												myLeft,
+												leftCol
+											),Myna.dump(anchorNode));*/
 											$this.manager.renumberForInsert(location.beforeNode,"before",subTreeSize)
 										}
 									}
@@ -2934,7 +2906,7 @@ if (!Myna) var Myna={}
 												})
 											}
 											
-											newOffset = anchorNode.data[rightCol] - myLeft				
+											newOffset = anchorNode.data[$this.manager.rightCol] - myLeft				
 											$this.manager.renumberForInsert(location.underNode,"under",subTreeSize)
 										}
 									} 
@@ -2964,7 +2936,7 @@ if (!Myna) var Myna={}
 													}
 												})
 											}
-											newOffset = anchorNode.data[rightCol] - myLeft				
+											newOffset = anchorNode.data[$this.manager.rightCol] - myLeft				
 											$this.manager.renumberForInsert(anchorNode.data[$this.manager.idCol],"under",subTreeSize)
 										} else {//insert root node
 											throw new Error("cannot move a node when the is no root node!")
@@ -2987,6 +2959,8 @@ if (!Myna) var Myna={}
 											offset:newOffset
 										}
 									})
+
+									
 								}
 							)
 							//Myna.printDump(anchorNode)
@@ -3104,7 +3078,7 @@ if (!Myna) var Myna={}
 									if (options.depthCol){
 										delete data[options.depthCol];
 									}
-									return undefined; //this is not really a create, so no need to monkey with the tree	
+									return; //this is not really a create, so no need to monkey with the tree	
 								}
 								
 								if (!location){
@@ -3211,53 +3185,21 @@ if (!Myna) var Myna={}
 								this.table.tableName + "_treeManager",
 								0,
 								function(){
+									var rightCol = man.table.getSqlColumnName(man.rightCol);
+									var leftCol = man.table.getSqlColumnName(man.leftCol);
+									var myRight = thisNode.data[man.rightCol];
+									var myLeft = thisNode.data[man.leftCol];
+									var subTreeSize = (myRight - myLeft) +1
+									if (subTreeSize){
 									//recursively delete child nodes
 										thisNode.childIds.forEach(function(childId){
 											$this.remove(childId);
 										})
-									//backfill
-										var rightCol = man.table.getSqlColumnName(man.rightCol);
-										var leftCol = man.table.getSqlColumnName(man.leftCol);
-										var myRight = thisNode.data[man.rightCol];
-										var myLeft = thisNode.data[man.leftCol];
-										var subTreeSize = (myRight - myLeft) +1
-										/* 
-										re-order the downstream tree to backfill
-										*/
-										new Myna.Query({
-											ds:man.ds,
-											log:man.logQueries,
-											sql:<ejs>
-												update <%=man.table.sqlTableName%> set 
-												<%=rightCol%> = <%=rightCol%> - {size:bigint},
-												<%=leftCol%> = <%=leftCol%> - {size:bigint}
-												where
-												<%=leftCol%> > {myRight:bigint}
-											</ejs>,
-											values:{
-												myRight:myRight,
-												size:subTreeSize,
-											}
-										})
-										/* 
-										re-order parentNodes to backfill
-										*/
-										new Myna.Query({
-											ds:man.ds,
-											log:man.logQueries,
-											sql:<ejs>
-												update <%=man.table.sqlTableName%> set 
-												<%=rightCol%> = <%=rightCol%> - {size:bigint}
-												where
-												<%=leftCol%> < {myLeft:bigint}
-												and <%=rightCol%> > {myRight:bigint}
-											</ejs>,
-											values:{
-												myRight:myRight,
-												myLeft:myLeft,
-												size:subTreeSize,
-											}
-										})
+										$this.manager.renumberForDelete(
+											myLeft,
+											MyRight
+										)
+									}
 								}
 							)
 						})
@@ -3265,6 +3207,7 @@ if (!Myna) var Myna={}
 					/* rebuildTree */
 						man.rebuildTree = function(){
 							var rootNode = man.getRootNode();
+							rootNode["set_" + options.leftCol](1);
 							
 							var calcRight = function(node,left,depth){
 								var right = left +1;
@@ -3293,8 +3236,115 @@ if (!Myna) var Myna={}
 							search[options.parentCol] = null;
 							return man.findBeans(search)[0]
 						}
+					/*renumberForDelete*/
+						man.renumberForDelete=function (left,right) {
+
+							var rightCol = man.table.getSqlColumnName(man.rightCol);
+							var leftCol = man.table.getSqlColumnName(man.leftCol);
+							var values={
+								right:right,
+								left:left,
+								size:(right - left) +1
+							}
+							
+
+							new Myna.Query({
+								ds:man.ds,
+								log:man.logQueries,
+								sql:<ejs>
+									update <%=man.table.sqlTableName%> set 
+									<%=leftCol%> = <%=leftCol%> - {size:bigint}
+									where
+									<%=leftCol%> > {left:bigint}
+								</ejs>,
+								values:values
+							})
+							new Myna.Query({
+								ds:man.ds,
+								log:man.logQueries,
+								sql:<ejs>
+									update <%=man.table.sqlTableName%> set 
+									<%=rightCol%> = <%=rightCol%> - {size:bigint}
+									where
+									<%=rightCol%> > {right:bigint}
+								</ejs>,
+								values:values
+							})
+						
+						}
 					/* renumberForInsert */
 						man.renumberForInsert = function(target,type,size){
+							var $this = this;
+							var rightCol = man.table.getSqlColumnName($this.rightCol);
+							var leftCol = man.table.getSqlColumnName($this.leftCol);
+							var anchorNode = man.findBeans(target)
+							if (!anchorNode.length){//node does not exist
+								return;
+							} else anchorNode = anchorNode[0];
+							
+							if (type=="before"){
+								
+								new Myna.Query({
+									ds:man.ds,
+									log:man.logQueries,
+									sql:<ejs>
+										update <%=$this.table.sqlTableName%> set 
+										<%=leftCol%> = <%=leftCol%> + ({size:bigint})
+										where
+										<%=leftCol%> >= {target:bigint} 
+									</ejs>,
+									values:{
+										target:anchorNode[$this.leftCol],
+										size:size
+									}
+								})
+								new Myna.Query({
+									ds:man.ds,
+									log:man.logQueries,
+									sql:<ejs>
+										update <%=$this.table.sqlTableName%> set 
+										<%=rightCol%> = <%=rightCol%> + ({size:bigint})
+										where
+										<%=rightCol%> >= {target:bigint} 
+									</ejs>,
+									values:{
+										target:anchorNode[$this.leftCol] ,
+										size:size
+									}
+								})
+								
+							} else {
+								new Myna.Query({
+									ds:man.ds,
+									log:man.logQueries,
+									sql:<ejs>
+										update <%=$this.table.sqlTableName%> set 
+										<%=rightCol%> = <%=rightCol%> + ({size:bigint}) 
+										where
+										<%=rightCol%> >= {nodeRight:bigint} 
+									</ejs>,
+									values:{
+										nodeRight:anchorNode[$this.rightCol],
+										size:size
+									}
+								})
+								new Myna.Query({
+									ds:man.ds,
+									log:man.logQueries,
+									sql:<ejs>
+										update <%=$this.table.sqlTableName%> set 
+										<%=leftCol%> = <%=leftCol%> + ({size:bigint}) 
+										where
+										<%=leftCol%> > {nodeRight:bigint} 
+									</ejs>,
+									values:{
+										nodeRight:anchorNode[$this.rightCol],
+										size:size
+									}
+								})
+							}
+						}
+						man.renumberForInsert_old = function(target,type,size){
 							var $this = this;
 							var rightCol = man.table.getSqlColumnName($this.rightCol);
 							var leftCol = man.table.getSqlColumnName($this.leftCol);
@@ -3422,7 +3472,7 @@ if (!Myna) var Myna={}
 								relatedBean.forEach(function(relatedBean){
 									if (!relatedBean.isDirty) {
 										return;
-									}
+									};
 									var relatedValidation = relatedBean.save()
 									v.merge(relatedValidation,alias +"."+relatedBean.id +".");
 									//bridge tables are a pain
