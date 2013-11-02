@@ -250,6 +250,7 @@
 				unique:function(params){
 					var v = new Myna.ValidationResult()
 					//Myna.log("debug","got here "  + String(typeof $server_gatway != "undefined"));
+					if (params.value === null) return v;
 					if (typeof $server_gateway != "undefined"){
 						//Myna.log("debug","params",Myna.dump(params));
 						var msg= params.options.message|| params.label +" ("+params.value+"), already exists in another record."

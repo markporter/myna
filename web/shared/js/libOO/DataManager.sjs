@@ -2163,13 +2163,19 @@ if (!Myna) var Myna={}
 		Myna.DataManager.validatorFunctions={
 			
 			unique:function(params){
+
 				//Myna.log("debug","got here dm",Myna.dump($req.data));
 				var v = new Myna.ValidationResult()
+				//null values do not need to be unique, that is what required is for
+				if (params.value === null) return v;
 				if (typeof $server_gatway != "undefined"){
 					var msg= params.options.message|| params.label +" ("+params.value+"), already exists in another record."
-					var search ={}
+
 					search[params.property] = params.value
-					var result = params.obj.manager.find(search,this)
+					var result = params.obj.manager.find(search,this).filter(function (row) {
+						return row[params.property] !== null;
+					})
+
 					if (result.length){
 						if (result.length > 1 || result[0] != params.obj.id) v.addError(msg,params.property);
 					}
@@ -2789,6 +2795,7 @@ if (!Myna) var Myna={}
 									//The "width" of this node and it's children
 									var subTreeSize = (myRight - myLeft) +1
 									var newOffset;
+									var newParentId;
 									
 
 									
@@ -2862,7 +2869,8 @@ if (!Myna) var Myna={}
 													}
 												})
 											}
-											newOffset = anchorNode.data[$this.manager.leftCol] - myLeft		
+											newOffset = anchorNode.data[$this.manager.leftCol] - myLeft	
+											newParentId = anchorNode.getParentId();
 											/*Myna.log("debug","{0} = {1} - {2} : {3}".format(
 												newOffset,
 												anchorNode.data[$this.manager.leftCol],
@@ -2906,7 +2914,9 @@ if (!Myna) var Myna={}
 												})
 											}
 											
+
 											newOffset = anchorNode.data[$this.manager.rightCol] - myLeft				
+											newParentId = anchorNode.id;
 											$this.manager.renumberForInsert(location.underNode,"under",subTreeSize)
 										}
 									} 
@@ -2937,6 +2947,7 @@ if (!Myna) var Myna={}
 												})
 											}
 											newOffset = anchorNode.data[$this.manager.rightCol] - myLeft				
+											newParentId = anchorNode.id;
 											$this.manager.renumberForInsert(anchorNode.data[$this.manager.idCol],"under",subTreeSize)
 										} else {//insert root node
 											throw new Error("cannot move a node when the is no root node!")
@@ -2959,6 +2970,10 @@ if (!Myna) var Myna={}
 											offset:newOffset
 										}
 									})
+
+									//reparent
+
+									$this["set_" + $this.manager.parentCol](newParentId);
 
 									
 								}
@@ -3195,7 +3210,7 @@ if (!Myna) var Myna={}
 										thisNode.childIds.forEach(function(childId){
 											$this.remove(childId);
 										})
-										$this.manager.renumberForDelete(
+										$this.renumberForDelete(
 											myLeft,
 											MyRight
 										)
