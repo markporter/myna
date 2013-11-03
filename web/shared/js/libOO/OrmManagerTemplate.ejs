@@ -244,7 +244,7 @@ function <%=tableName%>_manager(){
 		});
 		this.afterRemove(id);
 	},
-	create:function create(requiredFields){
+	create:function create(requiredFields,allowMassAsign){
 		var manager = this;
 		if (!requiredFields) requiredFields={}
 		if (!requiredFields.<%=primaryKey%>){
@@ -270,6 +270,7 @@ function <%=tableName%>_manager(){
 				}
 				return exists[0];
 			}
+		this.beforeSave(requiredFields)	
 		this.beforeCreate(requiredFields)
 		var now = new Date()
 		if (this.createdCol && !requiredFields[this.createdCol]) {
@@ -285,6 +286,7 @@ function <%=tableName%>_manager(){
 			return colName in manager.table.columns
 		})
 		.filter(function(colName){
+			if (allowMassAsign) return true;
 			//ignore columns that are not massAssignable and not required
 			return manager.getMassAssignable().contains(colName)
 				|| requiredFields.getKeys().contains(colName);
@@ -323,7 +325,9 @@ function <%=tableName%>_manager(){
 		}
 		</@if>
 		var bean = this.getById(requiredFields.<%=primaryKey%>);
+
 		this.afterCreate(bean);
+		this.afterSave(bean);
 		return bean;
 	},
 	query:function query(pattern,options){
@@ -737,7 +741,7 @@ function <%=tableName%>_manager(){
 <%=tableName%>_manager.beanClass.prototype = {
 	init:function init(){},
 	//isDirty:false,
-	setFields:function setFields(fields){
+	setFields:function setFields(fields,allowMassAssign){
 		var $this = this;
 		var startData={}
 
@@ -750,7 +754,7 @@ function <%=tableName%>_manager(){
 		}
 		fields.getKeys().forEach(function(k){
 			//filter non column properties
-			if (!manager.getMassAssignable().contains(k) || (k == "<%=primaryKey%>" && !bean.deferred)){
+			if (!allowMassAssign && !manager.getMassAssignable().contains(k) || (k == "<%=primaryKey%>" && !bean.deferred)){
 				delete fields[k]	
 			}
 		})
@@ -786,6 +790,7 @@ function <%=tableName%>_manager(){
 			return result
 		}
 		
+		$this.manager.beforeSave(fields)
 		fields.map(function(v,k){
 			var newval = $this.manager.beforeSaveField(
 				this,
@@ -843,12 +848,13 @@ function <%=tableName%>_manager(){
 				startData[k]
 			)
 		})
+		$this.manager.afterSave(this)
 		return result;
 	},
 	saveField:function saveField(fieldName,newval){
 		var fields={}
 		fields[fieldName] = newval;
-		return this.setFields(fields)
+		return this.setFields(fields,true)
 
 	
 	},

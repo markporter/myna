@@ -324,6 +324,8 @@ if (!Myna) var Myna={}
 			Parameters:
 				requiredFields	-	An object where the keys are column names and 
 									the values are the values to insert.
+				allowMassAssign	-	*Optional, default false*
+									If set to true, then even fields that are not set as mass assignable will be set
 									
 			Detail:
 				_requiredFields_  must contain entries for all  non-null columns 
@@ -1270,6 +1272,56 @@ if (!Myna) var Myna={}
 				* <setMassAssignable>
 				
 			*/
+		/* Function: afterSave
+			fired after a bean is saved in the database (create or update) but before it is returned
+		
+			Parameters:
+				bean	-	the newly saved bean
+
+			Returns:
+				undefined
+
+			
+			(code)
+				//override
+				man.afterSave = function (bean) {
+					var user = $cookie.getAuthUser();
+					myna.log("audit","User {first_name} {last_name} saved object".format(user));
+				}
+				
+				//merge
+				man.after("afterSave",function (bean) {
+					var user = $cookie.getAuthUser();
+					myna.log("audit","User {first_name} {last_name} saved object".format(user));
+				})
+			(end)
+			
+			*/
+		/* Function: beforeSave
+			fired before a bean is saved (create or update) in the database 
+		
+			Parameters:
+				data	-	the  data to save
+
+			Returns:
+				undefined
+
+			
+			(code)
+				//override
+				man.beforeSave = function (data) {
+					var user = $cookie.getAuthUser();
+					myna.log("audit","User {first_name} {last_name} saved object".format(user));
+				}
+				
+				//merge
+				man.before("beforeSave",function (data) {
+					var user = $cookie.getAuthUser();
+					myna.log("audit","User {first_name} {last_name} saved object".format(user));
+				})
+			(end)
+			
+			*/
 		/* Function: afterCreate
 			fired after a bean is created in the database but before it is returned
 		
@@ -1319,7 +1371,7 @@ if (!Myna) var Myna={}
 				})
 			(end)
 			
-			*/
+			*/	
 		/* Function: afterLoad
 			fired after a bean is loaded but before it is returned
 		
@@ -1702,7 +1754,9 @@ if (!Myna) var Myna={}
 			Sets multiple fields at once
 			
 			Parameters:	
-				fields	-	an object of column names and their values 
+				fields			-	an object of column names and their values 
+				allowMassAssign	-	*Optional, default false*
+									If set to true, then even fields that are not set as mass assignable will be set
 			
 			Returns:
 				<Myna.ValidationResult> representing the result of this action.
@@ -3440,6 +3494,8 @@ if (!Myna) var Myna={}
 			afterLoad:function (bean) {},
 			beforeCreate:function (data) {},
 			afterCreate:function (bean) {},
+			beforeSave:function (data) {},
+			afterSave:function (bean) {},
 			beforeSetField:function (bean,fieldName,newValue,oldValue) {},
 			afterSetField:function (bean,fieldName,newValue,oldValue) {},
 			beforeSaveField:function (bean,fieldName,newValue,oldValue) {},

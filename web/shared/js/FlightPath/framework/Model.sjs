@@ -222,7 +222,7 @@
 	*/
 	function Model(){
 		var model = this;
-		if (!this._labels) 	this._labels={}
+		if (!this._labels)	this._labels={}
 		if (!this._defaults) this._defaults={}
 		if (!this._types) this._types={}
 		if (!this._validators) this._validators={}	
@@ -232,7 +232,7 @@
 				hasOne:{},
 				hasMany:{},
 				belongsTo:{},
-				hasBridgeTo:{},
+				hasBridgeTo:{}
 			}
 		}
 		
