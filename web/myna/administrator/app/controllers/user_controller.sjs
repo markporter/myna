@@ -7,12 +7,12 @@
 				"email",
 				"user_id"
 			],
-			/*resultFields:[
+			resultFields:[
 				"user_login_id",
 				"user_id",
 				"login",
 				"type" 
-			],*/
+			],
 			pageSizeParam:"limit",
 			defaultSort:[{
 				property:"last_name",
@@ -23,6 +23,7 @@
 			}]
 		})
 	}
+
 
 /* ---------- addUserFromAdapter ---------------------------------------------------------- */
 	function addUserFromAdapter(params){

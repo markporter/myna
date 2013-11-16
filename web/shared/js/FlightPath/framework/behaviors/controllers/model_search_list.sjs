@@ -134,107 +134,105 @@ function init(options){
 	})
 
 
+	this.addAction("list",function list(params){
+		var $this = this;
+		var model = options.modelName?$FP.getModel(option.modelName):this.model;
+		var ds=model.ds;
+		var sort = params.sort 
+			|| options.sort
+			|| [];
+		
+		var page = params[options.pageParam];
+		var pageSize = params[options.pageSizeParam];
+		var tableName = model.table.sqlTableName;
+		var baseQuery = options.baseQuery 
+			|| "select * from {0} where 1=1\n".format(tableName);
 
-	if (!this.list){
-		this.list =	function list(params){
-			var $this = this;
-			var model = options.modelName?$FP.getModel(option.modelName):this.model;
-			var ds=model.ds;
-			var sort = params.sort 
-				|| options.sort
-				|| [];
-			
-			var page = params[options.pageParam];
-			var pageSize = params[options.pageSizeParam];
-			var tableName = model.table.sqlTableName;
-			var baseQuery = options.baseQuery 
-				|| "select * from {0} where 1=1\n".format(tableName);
+		var search = params[options.searchParam]||""
+		var resultFields = (options.resultFields || model.table.columnNames)
+			.map(function (name) {
+				return model.table.getSqlColumnName(name)
+			})
 
-			var search = params[options.searchParam]||""
-			var resultFields = (options.resultFields || model.table.columnNames)
-				.map(function (name) {
-					return model.table.getSqlColumnName(name)
-				})
-
-			var searchFields = (options.searchFields || model.table.columnNames)
-				.map(function (name) {
-					return model.table.getSqlColumnName(name)
-				})
-			
-			var criteria = {
-				plus:[],
-				minus:[],
-				or:[]
-			}
-
-			var tokenCount=0,token,tokenKey;
-			search.trim().replace(/\s+/g," ").split(/\s/m).forEach(function (token) {
-				if (!token.length) return
-				if(token.startsWith("!")){
-					token = token.after(1);
-					tokenKey = "token{0}".format(++tokenCount);
-					params[tokenKey] = "%{0}%".format(token.toLowerCase());
-					criteria.minus.push(tokenKey);
-				}else if (/\|/.test(token)){
-					token.split(/\|/).forEach(function (token) {
-						tokenKey = "token{0}".format(++tokenCount);
-						params[tokenKey] = "%{0}%".format(token.toLowerCase());
-						criteria.or.push(tokenKey);
-					})
-					
-				}else{
-					tokenKey = "token{0}".format(++tokenCount);
-					params[tokenKey] = "%{0}%".format(token.toLowerCase());
-					criteria.plus.push(tokenKey);
-				}
-			});
-			//Myna.printConsole(Myna.dumpText(criteria) + "\n"+Myna.dumpText(params));
-			var searchLine = "lower({0})".format(
-				searchFields.map(function (col) {
-					return "CAST({0} as VARCHAR(4000))".format(col)
-				}).join(model.table.db.concatOperator)
-				)
-			var sql;
-			var retVal =  new Myna.Query({
-				ds:ds,
-				log:true,
-				sql:sql=<ejs>
-					<%=baseQuery%>
-						<@if criteria.plus.length>
-						and(
-							<%=criteria.plus.map(function (tokenKey) {
-								return "{0} like {{1}:varchar}".format(searchLine,tokenKey);
-							}).join(" AND ")%>
-						)	
-						</@if>
-						<@if criteria.or.length>
-						and(
-							<%=criteria.or.map(function (tokenKey) {
-								return "{0} like {{1}:varchar}".format(searchLine,tokenKey);
-							}).join(" OR ")%>
-						)	
-						</@if>
-						<@loop array="criteria.minus" element="tokenKey" index="i">
-							and <%=searchLine%> not like {<%=tokenKey%>:varchar}
-						</@loop>
-					
-					<@if sort.length>
-						Order by
-						<%=sort.map(function(def){
-							return def.property + " " + def.direction;
-						}).join()%>	
-					</@if>
-					
-				</ejs>,
-				values:params,
-				page:page,
-				pageSize:pageSize
-			});
-
-			return retVal.result;
-			
+		var searchFields = (options.searchFields || model.table.columnNames)
+			.map(function (name) {
+				return model.table.getSqlColumnName(name)
+			})
+		
+		var criteria = {
+			plus:[],
+			minus:[],
+			or:[]
 		}
-	}
+
+		var tokenCount=0,token,tokenKey;
+		search.trim().replace(/\s+/g," ").split(/\s/m).forEach(function (token) {
+			if (!token.length) return
+			if(token.startsWith("!")){
+				token = token.after(1);
+				tokenKey = "token{0}".format(++tokenCount);
+				params[tokenKey] = "%{0}%".format(token.toLowerCase());
+				criteria.minus.push(tokenKey);
+			}else if (/\|/.test(token)){
+				token.split(/\|/).forEach(function (token) {
+					tokenKey = "token{0}".format(++tokenCount);
+					params[tokenKey] = "%{0}%".format(token.toLowerCase());
+					criteria.or.push(tokenKey);
+				})
+				
+			}else{
+				tokenKey = "token{0}".format(++tokenCount);
+				params[tokenKey] = "%{0}%".format(token.toLowerCase());
+				criteria.plus.push(tokenKey);
+			}
+		});
+		//Myna.printConsole(Myna.dumpText(criteria) + "\n"+Myna.dumpText(params));
+		var searchLine = "lower({0})".format(
+			searchFields.map(function (col) {
+				return "CAST({0} as VARCHAR(4000))".format(col)
+			}).join(model.table.db.concatOperator)
+			)
+		var sql;
+		var retVal =  new Myna.Query({
+			ds:ds,
+			log:true,
+			sql:sql=<ejs>
+				<%=baseQuery%>
+					<@if criteria.plus.length>
+					and(
+						<%=criteria.plus.map(function (tokenKey) {
+							return "{0} like {{1}:varchar}".format(searchLine,tokenKey);
+						}).join(" AND ")%>
+					)	
+					</@if>
+					<@if criteria.or.length>
+					and(
+						<%=criteria.or.map(function (tokenKey) {
+							return "{0} like {{1}:varchar}".format(searchLine,tokenKey);
+						}).join(" OR ")%>
+					)	
+					</@if>
+					<@loop array="criteria.minus" element="tokenKey" index="i">
+						and <%=searchLine%> not like {<%=tokenKey%>:varchar}
+					</@loop>
+				
+				<@if sort.length>
+					Order by
+					<%=sort.map(function(def){
+						return def.property + " " + def.direction;
+					}).join()%>	
+				</@if>
+				
+			</ejs>,
+			values:params,
+			page:page,
+			pageSize:pageSize
+		});
+
+		return retVal.result;
+		
+	})
+	
 	
 }
 

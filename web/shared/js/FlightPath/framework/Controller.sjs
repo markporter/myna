@@ -496,6 +496,25 @@
 		if (!this.filters[event][action]) this.filters[event][action]=[]
 		return this.filters[event][action]
 	}
+/* Function: addAction
+	Add an action function to this controller
+
+	Parameters:
+		name		-	*String*
+						Name of  action to add
+		func		-	*Function*
+						action function to add
+		overwrite	-	*Optional, default false*
+						*Boolean*
+						If true, and an action with this name already exists, it will be 
+						overwritten by this action
+	*/
+	Controller.prototype.addAction = function (name,func,overwrite) {
+		if (!overwrite && (name in this)) return;
+		func.action=name
+		this[name] = func;
+	}
+
 /* Function: getActions
 	returns an array of objects for each action that contain the action name 
 	and action function.
@@ -506,7 +525,6 @@
 	*/
 	Controller.prototype.getActions = function getActions(){
 		var $this=this	
-		
 		return this.getProperties().filter(function(prop){
 			//Myna.println(prop + ":"+(typeof $this[prop] === "function") +"&&"+$this[prop].action)
 			return (
