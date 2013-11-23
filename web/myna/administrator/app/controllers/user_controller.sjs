@@ -8,10 +8,10 @@
 				"user_id"
 			],
 			resultFields:[
-				"user_login_id",
+				//"user_login_id",
 				"user_id",
-				"login",
-				"type" 
+				//"login",
+				//"type" 
 			],
 			pageSizeParam:"limit",
 			defaultSort:[{

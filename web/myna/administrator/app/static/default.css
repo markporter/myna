@@ -75,6 +75,7 @@ body,td{
 .icon_upgrade { background: url(../static/images/package_go.png) 0 0px no-repeat !important;}
 .icon_upgrade_local { background: url(../static/images/package_green.png) 0 0px no-repeat !important;}
 .icon_upgrade_web { background: url(../static/images/package_link.png) 0 0px no-repeat !important;}
+.icon_adapter { background: url(../static/images/lock.png) 0 0px no-repeat !important;}
 
 
 

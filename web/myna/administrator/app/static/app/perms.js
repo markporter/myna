@@ -90,6 +90,15 @@ var controllers=[]
 								});
 							}
 						},{
+							text:"Manage Auth Types",
+							iconCls:"icon_adapter",
+							handler:function(c){
+								var view=c.up("viewport");
+								view.fireEvent("manage_auth_types",{
+									src:view
+								});
+							}
+						},{
 							text:"Logout",
 							iconCls:"icon_logout",
 							handler:function(){
@@ -194,6 +203,279 @@ var controllers=[]
 		}
 	}
 /* =========== General View Components ====================================== */
+/* =========== AuthTypes ============================================= */
+	/* ----------- Controller ------------------------------------------------ */
+		controllers.push("AuthType");
+		Ext.define('App.controller.AuthType', {
+			extend: 'Ext.app.Controller',
+			init: function() {
+				this.control({
+					viewport:{
+						manage_auth_types:function () {
+							this.showMain();
+						}
+					},
+					'auth_type_grid': {
+						manage_tables: this.manageTables
+					},
+					'auth_type_grid button[action="add_auth_type"]':{
+						click:this.addAuthType
+					},
+					'auth_type_edit':{
+						auth_type_save:function(event){
+
+							var form = event.src.form;
+							form.findField("errors").setValue("");
+							form.findField("errors").hide();
+							this.saveAuthTypeForm(event.model,event.values,function(result){
+								if (result.success){
+									form.close();
+								}else{
+									if (result.errorDetail) {
+										form.findField("errors").setValue(result.errorDetail)
+										form.findField("errors").show();
+									}
+									form.markInvalid(result.errors);
+									//U.infoMsg(result)
+								}
+							});
+						}
+					},
+					'auth_type_edit button[action="save"]':{
+						click:this.saveAuthTypeForm
+					},
+					'auth_type_edit button[action="delete"]':{
+						click:this.deleteAuthType
+					}
+					
+				});
+			},
+			
+			
+			
+			deleteAuthType:function editAuthType(button){
+				var fp = button.up("form");
+				var form = fp.form;
+
+				var auth_type = form.findField("auth_type").getValue();
+				if (window.confirm("Remove AuthType '" + auth_type +"'?")){
+					
+					$FP.AuthType.remove({auth_type:auth_type},U.directMask(fp,"Removing Auth Type", function(){
+						U.infoMsg(auth_type +" removed.");
+						form.close();
+						button.up("auth_type_grid").getStore().load();
+						
+						
+					}));
+				}
+			},
+			saveAuthTypeForm:function(model,values,cb){
+				$FP.AuthType.save(
+					values,
+					function(result){
+						if (result.success) {
+							model.commit();
+						} else {
+							model.reject();
+						}
+						if (cb) cb(result);
+					}
+				);
+				
+			
+			},	
+			showMain:function(){
+				U.addCenterTab({
+					id:"data_sources",
+					xtype:"auth_type_main",
+					iconCls:"icon_adapter"
+				});
+			},
+			
+			
+			
+		});
+	/* =========== Views ===================================================== */
+		/* ----------- auth_type_main ------------------------------------------------- */
+			Ext.define('App.view.auth_type.Main', {
+				extend: 'Ext.panel.Panel',
+				alias:'widget.auth_type_main',
+				title:"Auth Types",
+				layout:"fit",
+				items:[{
+					id:"auth_type_grid",
+					xtype:"auth_type_grid"
+				}],
+				
+				initComponent:function(){
+					this.callParent(arguments);
+				}
+			});
+		/* ----------- auth_type_edit ------------------------------------------------- */
+			Ext.define('App.view.auth_type.Edit', {
+				extend: 'Ext.form.Panel',
+				alias:'widget.auth_type_edit',
+				//layout:"fit",
+				frame:true,
+				autoScroll:true,
+				width:500,
+				defaults:{
+					labelStyle:"font-weight:bold;",
+					//labelAlign:"top",
+					//labelWidth:200,
+					anchor:"99%",
+					labelAlign:"top",
+					xtype:"textfield",
+					enableKeyEvents:true,
+					msgTarget:"under"
+					
+				},	
+				
+				buttons:[{
+					text:"Save",
+					iconCls:"icon_save",
+					handler:function(b){
+						var view = b.up("auth_type_edit");
+						var form = view.form;
+						if (form.isValid()){
+							form.updateRecord(form.currentRecord);
+							var data=form.getFieldValues();
+							if (form.findField("auth_type").isDisabled()){
+								form.findField("auth_type").setDisabled(false)
+								data = form.getFieldValues()
+								form.findField("auth_type").setDisabled(true)
+							}
+							view.fireEvent("auth_type_save",{
+								src:view,
+								model:form.currentRecord,
+								values:data
+							});	
+						}
+					}
+				},{
+					text:"Delete",
+					iconCls:"icon_delete",
+					action:"delete"
+				}],
+				
+				initComponent:function(){
+					var m =new App.model.AuthType();
+
+					this.items=[];	
+					
+					this.callParent(arguments);
+					this.on("beforegridload",function (fp,record) {
+						console.log(arguments)
+						fp.removeAll(false);
+						fp.add(appVars.authAdapters[record.data.adapter].items
+							.concat([{
+								xtype:"displayfield",
+								name:"errors",
+								hidden:true,
+								fieldLabel:"Connection Errors",
+								style:"color:red",
+								width:300
+							}]))
+						if (record.data.auth_type){//existing
+							fp.body.mask("Loading...")
+							$FP.AuthType.get({id:record.data.auth_type},function (result) {
+								console.log(result)
+								fp.form.setValues(result)
+								var subvalues={}
+
+								$O(result).forEach(function (v,k) {
+									if (typeof v =="object"){
+										$O(v).forEach(function (sub_v,sub_k) {
+											var key= "{0}/{1}".format(k,sub_k)
+											subvalues[key]	=sub_v
+										})
+										
+									}
+								})
+
+								fp.form.setValues(subvalues)
+
+								fp.body.unmask()
+							})
+							fp.form.findField("auth_type").setDisabled(true)
+						}
+						//record.data={}
+						return false
+						
+							
+					})
+				}
+			});	
+		/* ----------- auth_type_grid ------------------------------------------------- */
+			Ext.define('App.view.auth_type.Grid', {
+				extend: 'univnm.ext.SupaGrid',
+				alias:'widget.auth_type_grid',
+				stripeRows:true,
+				store:{
+					storeId:"auth_type_grid",
+					autoLoad:true,
+					type:"authtype",
+					remoteSort:false,
+					sorters:[{
+						property:"name",
+						direction:"asc"
+					}]
+				},
+				selModel:{
+					xtype:"cellmodel"
+				}, 
+				tbar:[{
+					fieldLabel:"Add new AuthType of",
+					labelWidth:120,
+					xtype:"quickdrop",
+					values:appVars.authAdapterNames,
+					editable:false,
+					listeners:{
+						select:function(c,r){
+							var view=c.up("auth_type_grid");
+							view.fireEvent("add_auth_type",{
+								src:view,
+								adapter:r.first().data.value
+							});
+							view.showEditForm({
+								adapter:r.first().data.value
+							})
+							c.setValue("")
+
+						}	
+					}
+				}],
+				filterPosition:"top",
+				filterMode:"local",
+				filterSuppressTitle:true,
+				editFormConfig:{
+					xtype:"auth_type_edit",
+					//editTriggerCol:"Name",
+					position:"right"
+				},
+				loadMask: true,
+				initComponent:function(){
+					var m = new App.model.AuthType();
+					var er =function(val){
+						return '<div class="link" title="Click to edit this AuthType">'+val+'</div>';
+					};
+					this.columns=[
+						{dataIndex:"auth_type", width:200,renderer:er},
+						{dataIndex:"adapter"},
+						{dataIndex:"prettyName"},
+						{dataIndex:"desc", flex:1 ,minWidth:100}
+					].map(function(col){
+						return $O(col).setDefaultProperties({
+							header:m.getLabel(col.dataIndex),
+							filterable:true,
+							//id:col.dataIndex,
+							flex:0
+						});
+					});
+						
+					this.callParent(arguments);
+				}
+			});
 /* =========== User ========================================================= */
 	/* ----------- Controller ----------------------------------------------- */
 		controllers.push("User");
@@ -284,7 +566,7 @@ var controllers=[]
 					},
 					user_login_add:{
 						add_user:function (event) {
-							this.addUserFromAdapter(event);
+							this.addUserFromAuthType(event);
 						},
 						search:function (event) {
 							var grid =event.src.down("supagrid")
@@ -305,10 +587,10 @@ var controllers=[]
 					
 				});
 			},
-			addUserFromAdapter:function (event) {
+			addUserFromAuthType:function (event) {
 				var vp = Ext.ComponentQuery.query("viewport").first();
 				var userGrid = vp.down("supagrid[itemId=users]")
-				$FP.User.addUserFromAdapter({
+				$FP.User.addUserFromAuthType({
 					type:event.type,
 					login:event.login,
 					user_id:event.user_id
@@ -871,7 +1153,7 @@ var controllers=[]
 								{dataIndex:"last_name"},
 								{dataIndex:"middle_name"},
 								{dataIndex:"email"},
-								{dataIndex:"title"}
+								{dataIndex:"title", flex:1}
 							].map(function (row) {
 								row.text = row.dataIndex.replace(/_/g," ").titleCap()
 								return row
@@ -956,7 +1238,7 @@ var controllers=[]
 			addUser:function (event) {
 				var vp = Ext.ComponentQuery.query("viewport").first();
 				var userGrid = vp.down("supagrid[itemId=users]")
-				$FP.User.addUserFromAdapter({
+				$FP.User.addUserFromAuthType({
 					type:event.type,
 					login:event.login,
 					user_id:event.user_id
@@ -1193,6 +1475,7 @@ var controllers=[]
 			Ext.apply(App,{
 				
 			})
+			this.getController("AuthType").showMain()
 			/*this.getController("Sql").openSql(
 				U.beautifySql(
 					'Select aa.answer_attachment_id, aa.request_id, aa.document, aa.filename, aa.title, aa.question_id, aa from "ORS"."ANSWER_ATTACHMENT" aa'
