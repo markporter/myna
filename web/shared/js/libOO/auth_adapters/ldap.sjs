@@ -66,18 +66,129 @@ administrator
 */
 
 var type="ldap";
+var editConfig={
+	items:[{
+			xtype:"displayfield",
+			name:"adapter",
+			labelAlign:"left",
+			labelWidth:110,
+			fieldLabel:"AuthType Adapter",
+			value:"ldap"
+		},{
+			xtype:"textfield",
+			name:"auth_type",
+			fieldLabel:"AuthType Name",
+			value:""
+		},{
+			xtype:"textfield",
+			name:"prettyName",
+			fieldLabel:"Display Name",
+			value:"AD Login"
+		},{
+			xtype:"textfield",
+			name:"desc",
+			fieldLabel:"Login Prompt",
+			value:"Login using your Active Directory domain credentials"
+		},{
+			xtype:"textfield",
+			name:"ad_domain",
+			labelAlign:"top",
+			value:"example",
+			fieldLabel:"AD Domain (leave blank if not using Active Directory)"
+		},{
+			xtype:"textfield",
+			name:"server",
+			fieldLabel:"LDAP URL (use ldaps for secure)",
+			value:"ldaps://domain.example.com/dc=domain,dc=example,dc=com"
+		},{
+			xtype:"textfield",
+			name:"filter",
+			fieldLabel:"User Filter (used to only match users)",
+			value:"(sAMAccountType=805306368)"
+		},{
+			xtype:"textfield",
+			name:"group_filter",
+			fieldLabel:"Group Filter (used to only match only groups)",
+			value:"(objectCategory=group)"
+		},{
+			xtype:"textfield",
+			name:"search_columns",
+			fieldLabel:"Search Attributes (used for finding users, comma separated)",
+			value:"cn,givenName,sn"
+		},{
+			xtype:"textfield",
+			name:"username",
+			fieldLabel:"Username for searches (leave blank for anonymous bind)"
+		},{
+			xtype:"textfield",
+			inputType:"password",
+			name:"password",
+			fieldLabel:"Password for search user (leave blank for anonymous bind)"
+		},{
+			xtype:"fieldset",
+			title:"LDAP Attribute Map",
+			width:300,
+			defaults:{
+				xtype:"textfield",
+				labelAlign:"left",
+				width:250,
+				labelStyle:"font-weight:bold;",
+				anchor:"99%",
+				msgTarget:"under"
+					
+			},
+			items:[
+				{
+					fieldLabel:"First Name",
+					name:"attributeMap/first_name",
+					value:"givenName"
+				},{
+					fieldLabel:"Last Name",
+					name:"attributeMap/last_name",
+					value:"sn"
+				},{
+					fieldLabel:"Middle Name",
+					name:"attributeMap/middle_name",
+					value:"initials"
+				},{
+					fieldLabel:"Username",
+					name:"attributeMap/login",
+					value:"sAMAccountName"
+				},{
+					fieldLabel:"Title",
+					name:"attributeMap/title",
+					value:"title"
+				},{
+					fieldLabel:"Email",
+					name:"attributeMap/email",
+					value:"mail"
+				},{
+					fieldLabel:"Group Name",
+					name:"attributeMap/group_name",
+					value:"cn"
+				},{
+					fieldLabel:"Group Member",
+					name:"attributeMap/group_member",
+					value:"member"
+				}
+			]
+	}]
+}
 
 //check the config file for needed values
-this.config.checkRequired([
-	"server",
-	"search_columns",
-	"map"	
-]);
-this.config.map.checkRequired([
-	"login",
-	"first_name",
-	"last_name"
-]);
+if (this.config){
+	this.config.checkRequired([
+		"server",
+		"search_columns",
+		"map"	
+	]);
+	if ("map" in config && typeof config.map == "object") config.attributeMap = config.map;
+	this.config.attributeMap.checkRequired([
+		"login",
+		"first_name",
+		"last_name"
+	]);
+}
 
 function getLdap(){
 	var ldap;
@@ -96,7 +207,7 @@ function getLdap(){
 
 
 function userExists(username){
-	var searchString="("+this.config.map.login+"="+username+")";
+	var searchString="("+this.config.attributeMap.login+"="+username+")";
 	return !!getLdap().search(searchString).length;
 }
 
@@ -157,7 +268,7 @@ function searchUsers(search){
 	}
 	
 	var attributes="cn";
-	$this.config.map.forEach(function(v,p){
+	$this.config.attributeMap.forEach(function(v,p){
 		attributes = attributes.listAppend(v);
 	})
 	
@@ -166,10 +277,10 @@ function searchUsers(search){
 		data:$this.getLdap().search(qry,attributes)
 		.filter(function(row){
 			
-			return $this.config.map.login in row.attributes 
-			&& row.attributes[$this.config.map.login].length
-			/* && $this.config.map.email in row.attributes
-			&& row.attributes[$this.config.map.email].length */
+			return $this.config.attributeMap.login in row.attributes 
+			&& row.attributes[$this.config.attributeMap.login].length
+			/* && $this.config.attributeMap.email in row.attributes
+			&& row.attributes[$this.config.attributeMap.email].length */
 		})
 		.map(function(row){
 			var result = {
@@ -180,7 +291,7 @@ function searchUsers(search){
 				email:"",
 				title:""
 			}
-			$this.config.map.forEach(function(ldap_attribute,myna_attribute){
+			$this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
 				 if (ldap_attribute in row.attributes){
 					 result[myna_attribute] = row.attributes[ldap_attribute][0];
 					 if (myna_attribute == "login") result[myna_attribute] = result[myna_attribute].toLowerCase(); 
@@ -197,7 +308,7 @@ function searchUsers(search){
 
 function getUserByLogin(login){
 	var $this = this;
-	var qry ="("+ $this.config.map.login+ "="+login+")";
+	var qry ="("+ $this.config.attributeMap.login+ "="+login+")";
 		
 	if (Object.prototype.hasOwnProperty.call($this.config,"filter")){
 		  qry = "(&" + $this.config.filter + qry + ")"
@@ -211,7 +322,7 @@ function getUserByLogin(login){
 		  middle_name:"",
 		  title:""
 	  }
-	  $this.config.map.forEach(function(ldap_attribute,myna_attribute){
+	  $this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
 			if (ldap_attribute in row.attributes){
 				result[myna_attribute] = row.attributes[ldap_attribute][0];
 			}
@@ -221,3 +332,18 @@ function getUserByLogin(login){
   })[0];
 	
 }
+
+function validate(config) {
+	return new Myna.Validation()
+		.addValidators({
+			server:{
+				required:true
+			},
+			search_columns:{
+				type:"string",
+				required:true
+			}
+		})
+		.validate(config)
+}
+
