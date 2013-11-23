@@ -556,7 +556,10 @@
 		
 	*/
 	Controller.prototype.callAction = function callAction(action,params){
-		params = ({action:action}).setDefaultProperties(params||{});
+		if (params) {
+			params.action=action	
+		}else params = ({action:action})
+
 		var renderstate = this.rendered;
 		this.rendered = true
 		var ret= this.handleAction(params,true)
