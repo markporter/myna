@@ -105,7 +105,7 @@ if (!Myna) var Myna={}
 			this.errors[property] = message;	
 		} else {
 			//only  add unique errors
-			if (!new RegExp(message).test(this.errorDetail)){
+			if (!new RegExp(message.escapeRegex()).test(this.errorDetail)){
 				this.errorDetail += message +"<br>\n"
 			}
 		}
