@@ -70,6 +70,8 @@ function index(params){
 			"User",
 			"UserLogin",
 			"UserGroup",
+			"UserGroupMember",
+			"Right",
 			"AuthType"
 		].map(function(modelName){
 			return c.getElement("model_template",{

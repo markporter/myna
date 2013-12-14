@@ -163,6 +163,10 @@ var editConfig={
 					name:"attributeMap/email",
 					value:"mail"
 				},{
+					fieldLabel:"Group Membership",
+					name:"attributeMap/member_group",
+					value:"memberOf"
+				},{
 					fieldLabel:"Group Name",
 					name:"attributeMap/group_name",
 					value:"cn"
@@ -170,7 +174,7 @@ var editConfig={
 					fieldLabel:"Group Member",
 					name:"attributeMap/group_member",
 					value:"member"
-				}
+				},
 			]
 	}]
 }
@@ -203,7 +207,63 @@ function getLdap(){
 	return ldap;	
 }
 
+function getGroups(login){
+	var $this = this;
+	var attrLogin = this.config.attributeMap.login;
+	var attrGroupName = this.config.attributeMap.group_name;
+	var attrMemberGroup = this.config.attributeMap.member_group;
+	var attrGroupMember = this.config.attributeMap.group_member;
+	var ldap = this.getLdap();
 
+
+	
+	var search = "({0}={1})".format(
+			attrLogin,
+			login
+		);
+	var result = ldap.search(search).first().attributes[attrMemberGroup]
+
+	return result;
+
+}
+
+function syncGroups(login,user_id) {
+	var $this = this;
+	//clear existing memberships
+	var appname = "{adapter}_{auth_type}".format(this.config)
+	new Myna.Query({
+		ds:"myna_permissions",
+		sql:<ejs>
+			delete
+					
+			from
+				user_group_members
+			where 
+				user_id = {user_id}
+				and user_group_id in (
+					select user_group_id 
+					from user_groups ug
+					where ug.appname = {appname}
+				)
+
+
+				
+		</ejs>,
+		values:{
+			appname:appname,
+			user_id:user_id
+		}
+	});
+	//add new memberships
+	this.getGroups(login).forEach(function (dn) {
+		var group = Myna.Permissions.addUserGroup({
+			name:dn,
+			appname:appname,
+			description:"Imported group from {auth_type} provider".format($this.config)
+		})
+		group.addUsers(user_id)
+	})
+}
 
 
 function userExists(username){
