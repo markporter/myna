@@ -1,3 +1,49 @@
+Release Name: 1.10.3
+============================
+Notes: Minor additions and bug fixes
+
+* **[ADD]**         DataManager manager.create() and bean.setFields() now take an optional second parameter "allowMassAssignable" which will allow non-mass-assignable fields to be saved.
+* **[ADD]**         LDAP Adapter: added new functions syncGroups, getGroups, searchGroups
+* **[ADD]**         Myna.Ldap.lookup(dn) for retrieving attributes for a specific DN
+* **[CHANGE]**      Myna.DataManager.validatorFunctions.unique and FlightPath Model.validation.validatorFunctions.unique now only apply "uniqueness checks on non-null values. Use the "required" validator to disallow null values
+* **[FIX]**         Bug in TreeObject.moveNode that cused MPTT ordering errors when using "beforeNode"
+* **[FIX]**         Bug in in TreeManager whern rebuildTree would not work if the root node had a left other than "1"
+* **[FIX]**         DataManager bean.saveField() now properly saves fileds that are not mass assignable
+* **[FIX]**         FlightPath: action parameters that match Object prototype properties are no longer filtered
+* **[FIX]**         ValidationResult.addError no longer throws errors if the message contains regex symbols
+
+----------------------------------------------------------
+Release Name: 1.11
+============================
+Notes: Minor updates and bug fixes
+
+* **[ADD]**         DateManager manager.create() and bean.setFields() now take an optional second parameter "allowMassAssignable" which will allow non-mass-assignable fields to be saved.
+* **[ADD]**         LDAP Adapter: added new functions syncGroups, getGroups, searchGroups
+* **[ADD]**         Myna.Ldap.lookup(dn) for retrieving attributes for a specific DN
+* **[CHANGE]**      Myna.DataManager.validatorFunctions.unique and FlightPath Model.validation.validatorFunctions.unique now only apply "uniqueness checks on non-null values. Use the "required" validator to disallow null values
+* **[FIX]**         Bug in TreeObject.moveNode that cused MPTT ordering errors when using "beforeNode"
+* **[FIX]**         Bug in in TreeManager whern rebuildTree would not work if the root node had a left other than "1"
+* **[FIX]**         DataManager bean.saveField() now properly saves fileds that are not mass assignable
+* **[FIX]**         FlightPath: action parameters that match Object prototype properties are no longer filtered
+* **[FIX]**         ValidationResult.addError no longer throws errors if the message contains regex symbols
+
+
+----------------------------------------------------------
+Release Name: 1.10.2
+============================
+Notes: 
+
+* **[ADD]**         DataManager manager.create() and bean.setFields() now take an optional second parameter "allowMassAssignable" which will allow non-mass-assignable fields to be saved.
+* **[ADD]**         LDAP Adapter: added new functions syncGroups, getGroups, searchGroups
+* **[ADD]**         Myna.Ldap.lookup(dn) for retrieving attributes for a specific DN
+* **[CHANGE]**      Myna.DataManager.validatorFunctions.unique and FlightPath Model.validation.validatorFunctions.unique now only apply "uniqueness checks on non-null values. Use the "required" validator to disallow null values
+* **[FIX]**         Bug in TreeObject.moveNode that cused MPTT ordering errors when using "beforeNode"
+* **[FIX]**         Bug in in TreeManager whern rebuildTree would not work if the root node had a left other than "1"
+* **[FIX]**         DataManager bean.saveField() now properly saves fileds that are not mass assignable
+* **[FIX]**         FlightPath: action parameters that match Object prototype properties are no longer filtered
+* **[FIX]**         ValidationResult.addError no longer throws errors if the message contains regex symbols
+
+----------------------------------------------------------
 Release Name: 1.10.1
 ============================
 Notes: 
