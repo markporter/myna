@@ -66,6 +66,123 @@ administrator
 */
 
 var type="ldap";
+var editConfig={
+	items:[{
+			xtype:"displayfield",
+			name:"adapter",
+			labelAlign:"left",
+			labelWidth:110,
+			fieldLabel:"AuthType Adapter",
+			value:"ldap"
+		},{
+			xtype:"textfield",
+			name:"auth_type",
+			fieldLabel:"AuthType Name",
+			value:""
+		},{
+			xtype:"textfield",
+			name:"prettyName",
+			fieldLabel:"Display Name",
+			value:"AD Login"
+		},{
+			xtype:"textfield",
+			name:"desc",
+			fieldLabel:"Login Prompt",
+			value:"Login using your Active Directory domain credentials"
+		},{
+			xtype:"textfield",
+			name:"ad_domain",
+			labelAlign:"top",
+			value:"example",
+			fieldLabel:"AD Domain (leave blank if not using Active Directory)"
+		},{
+			xtype:"textfield",
+			name:"server",
+			fieldLabel:"LDAP URL (use ldaps for secure)",
+			value:"ldaps://domain.example.com/dc=domain,dc=example,dc=com"
+		},{
+			xtype:"textfield",
+			name:"filter",
+			fieldLabel:"User Filter (used to only match users)",
+			value:"(sAMAccountType=805306368)"
+		},{
+			xtype:"textfield",
+			name:"group_filter",
+			fieldLabel:"Group Filter (used to only match only groups)",
+			value:"(objectCategory=group)"
+		},{
+			xtype:"textfield",
+			name:"search_columns",
+			fieldLabel:"Search Attributes (used for finding users, comma separated)",
+			value:"cn,givenName,sn"
+		},{
+			xtype:"textfield",
+			name:"username",
+			fieldLabel:"Username for searches (leave blank for anonymous bind)"
+		},{
+			xtype:"textfield",
+			inputType:"password",
+			name:"password",
+			fieldLabel:"Password for search user (leave blank for anonymous bind)"
+		},{
+			xtype:"fieldset",
+			title:"LDAP Attribute Map",
+			width:300,
+			defaults:{
+				xtype:"textfield",
+				labelAlign:"left",
+				width:250,
+				labelStyle:"font-weight:bold;",
+				anchor:"99%",
+				msgTarget:"under"
+					
+			},
+			items:[
+				{
+					fieldLabel:"First Name",
+					name:"attributeMap/first_name",
+					value:"givenName"
+				},{
+					fieldLabel:"Last Name",
+					name:"attributeMap/last_name",
+					value:"sn"
+				},{
+					fieldLabel:"Middle Name",
+					name:"attributeMap/middle_name",
+					value:"initials"
+				},{
+					fieldLabel:"Username",
+					name:"attributeMap/login",
+					value:"sAMAccountName"
+				},{
+					fieldLabel:"Title",
+					name:"attributeMap/title",
+					value:"title"
+				},{
+					fieldLabel:"Email",
+					name:"attributeMap/email",
+					value:"mail"
+				},{
+					fieldLabel:"Distinguished Name",
+					name:"attributeMap/dn",
+					value:"distinguishedName"
+				},{
+					fieldLabel:"Group Membership",
+					name:"attributeMap/member_group",
+					value:"memberOf"
+				},{
+					fieldLabel:"Group Name",
+					name:"attributeMap/group_name",
+					value:"cn"
+				},{
+					fieldLabel:"Group Member",
+					name:"attributeMap/group_member",
+					value:"member"
+				}
+			]
+	}]
+}
+
 
 //check the config file for needed values
 this.config.checkRequired([
@@ -93,6 +210,68 @@ function getLdap(){
 }
 
 
+
+function importGroup(name) {
+	var $this = this;
+	//clear existing memberships
+	var appname = "{adapter}_{auth_type}".format(this.config)
+	var group = Myna.Permissions.addUserGroup({
+		name:name,
+		appname:appname,
+		description:"Imported group from provider '{auth_type}'".format($this.config)
+	})
+	var groupLdap = this.getLdap().lookup(name)
+	//return Myna.printDump(groupLdap,"",5);
+
+	new Myna.Query({
+		ds:"myna_permissions",
+		sql:<ejs>
+			delete
+					
+			from
+				user_group_members
+			where 
+				
+				user_group_id in (
+					select user_group_id 
+					from user_groups ug
+					where ug.appname = {appname}
+				)
+
+
+				
+		</ejs>,
+		values:{
+			appname:appname
+		}
+	});
+
+
+	// import members	
+	groupLdap
+		.attributes[$this.config.attributeMap.group_member||"member"]
+		.forEach(function (dn) {
+			//try{
+				var userLdap = $this.getLdap().lookup(dn)
+				var userObj = {
+					login:"",
+					first_name:"",
+					last_name:"",
+					middle_name:"",
+					title:""
+				}
+				$this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
+					if (ldap_attribute in userLdap.attributes){
+						userObj[myna_attribute] = userLdap.attributes[ldap_attribute][0];
+					}
+				})
+				var user = Myna.Permissions.addUser(userObj)
+				user.setLogin({type:$this.config.auth_type,login:userObj.login})
+				group.addUsers(user.user_id)
+			//} catch(e) {}
+		})
+	return group;
+}
 
 
 function userExists(username){
@@ -189,6 +368,42 @@ function searchUsers(search){
 			return result;
 		}),
 		columns:"login,first_name,last_name,middle_name,email,title"
+	})
+	
+}
+
+function searchGroups(search){
+	var $this = this;
+	var qry ="(|";
+	
+	$this.config.search_columns.split(/,/).forEach(function(col){
+		 qry +="("+col+"=" + "*"+search +"*)"
+	})
+	
+	qry +=")";
+	
+	if (Object.prototype.hasOwnProperty.call($this.config,"group_filter")){
+		  qry = "(&" + $this.config.group_filter + qry + ")"
+	}
+
+	var nameAttr = $this.config.attributeMap.login||"cn"
+	
+	
+	
+	Myna.log("debug","ldap search qry " + qry);
+	return new Myna.DataSet({
+		data:$this.getLdap().search(qry,nameAttr)
+		.filter(function(row){
+			return row.attributes[nameAttr].length
+		})
+		.map(function(row){
+			return {
+				name:row.name,
+				id:$this.config.auth_type + "/" + row.name
+			}
+			
+		}),
+		columns:"name,id"
 	})
 	
 }

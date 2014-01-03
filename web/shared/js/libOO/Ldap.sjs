@@ -123,3 +123,66 @@ if (!Myna) Myna={}
         }
         return result;
     }
+
+/* Function: lookup
+    Searches an LDAP repository for a specific entry
+   
+    Parameters:
+        dn    -     *REQUIRED* full DN of target node, relative to initial context
+                            > cn=mporter,ou=users
+                            
+        attributes        -    *Optional default null* a comma separated list of attributes to
+                            retrieve from the ldap server. If not specified, all attributes
+                            are returned
+    Returns:
+        if not found, throws javax.naming.NameNotFoundException
+
+        If found, returns a single ldap result that looks like this
+        (code)
+            result = (Object)
+                |
+                +-- name = (String) fully qualified name of result node
+                |
+                +-- attributes = (Object)
+                    |
+                    +--<attribute name> = (Array)
+                        |
+                        +--[0] = (String)
+        (end)
+     
+    */
+
+    Myna.Ldap.prototype.lookup=function(dn){
+        //strip base context, if necessary
+        var baseContext = this.server.listLast("/").toLowerCase();
+        //Myna.printConsole("baseContext",baseContext);
+        if (dn.right(baseContext.length).toLowerCase() == baseContext){
+            dn = dn.before(baseContext.length + 1)
+        }
+
+        var Context = Packages.javax.naming.Context;
+        var directory = Packages.javax.naming.directory;
+        var ctx = this.ctx;
+        var env = this.env;
+
+        var curObj = ctx.getAttributes(dn);
+       
+        //return Myna.printDump(Myna.JavaUtils.beanToObject(curObj))
+        //return Myna.printDump(ObjectLib.getProperties(curObj))
+        return {
+            name:dn,
+            attributes:(function(curObj){
+                var attributesArray=Myna.enumToArray(curObj.getAll())
+
+                var attributesObject ={}
+                for (var x = 0; x < attributesArray.length; ++x ){
+                    var array = Myna.enumToArray(attributesArray[x].getAll());
+                   
+                    attributesObject[attributesArray[x].getID()] = array.map(function(element){
+                        return String(element);
+                    });
+                }
+                return attributesObject;
+            })(curObj)
+        }
+    }
