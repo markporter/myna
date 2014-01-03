@@ -39,7 +39,7 @@
 		result.data = bean.data
 		return result;
 	}
-/* ---------- searchByAuthType ---------------------------------------------------------- */
+/* ---------- searchByAuthType ---------------------------------------------- */
 	function searchByAuthType(params){
 		var authType = params.type.replace(/[^\w\.\-]/g,"");
 		var adapter = Myna.Permissions.getAuthAdapter(authType)
@@ -51,7 +51,7 @@
 				)}]
 		}
 	}
-/* ---------- remove ---------------------------------------------------------- */
+/* ---------- remove -------------------------------------------------------- */
 	function remove(params){
 		var result = new Myna.ValidationResult
 		try{
@@ -75,7 +75,7 @@
 	}
 
 
-/* ---------- getAuthTypes ---------------------------------------------------------- */
+/* ---------- getAuthTypes -------------------------------------------------- */
 	function getAuthTypes(params){
 		
 		return Myna.Permissions.getAuthTypes()

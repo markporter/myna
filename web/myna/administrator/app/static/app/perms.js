@@ -1409,12 +1409,29 @@ var controllers=[]
 								}
 							})
 						}
-						
-
+					},
+					group_add:{
+						add_group:function (event) {
+							this.addGroupFromAuthType(event);
+						},
+						search:function (event) {
+							var grid =event.src.down("supagrid")
+							var store = grid.getStore();
+							/*var proxy = store.getProxy();
+							proxy.extraParams = {
+								
+							}*/
+							store.load({
+								params:{
+									type:event.src.auth_type,
+									search:event.value
+								}
+							})
+						}
 					},
 					group_grid:{
 						add_group:function (event) {
-							this.showAddLogin(event)
+							this.showAddGroup(event)
 						},
 						search:function (event) {
 							var store= event.src.getStore();
@@ -1428,27 +1445,46 @@ var controllers=[]
 					
 				});
 			},	
-			addUser:function (event) {
+
+			addGroupFromAuthType:function (event) {
+				event.src.body.mask("importing...");
 				var vp = Ext.ComponentQuery.query("viewport").first();
-				var userGrid = vp.down("supagrid[itemId=users]")
-				$FP.User.addUserFromAuthType({
+				var groupGrid = vp.down("supagrid[itemId=groups]")
+				$FP.UserGroup.addGroupFromAdapter({
 					type:event.type,
-					login:event.login,
-					user_id:event.user_id
+					name:event.name,
+					id:event.id
 				},function (result) {
+					event.src.body.unmask();
 					if (result.success){
-						var mArray = userGrid.getStore().add(result.user)
-						userGrid.showEditForm(mArray[0])
-						/*userGrid.fireEvent("search",{
-							src:userGrid,
+						var mArray = groupGrid.getStore().add(result.group)
+						groupGrid.showEditForm(mArray[0])
+						/*groupGrid.fireEvent("search",{
+							src:groupGrid,
 							value:result.user.user_id
 						})*/
-						U.infoMsg("User/Login added")
+						U.infoMsg("Group added")
 						event.src.close()
 					} else alert(result.detail)
 				})
 			},
 			
+			showAddGroup:function (event) {
+				/*if (event.type == "server_admin") {
+					U.infoMsg("Assigning Myna Server Admin login is not allowed")
+				} else */
+				if (event.type == "myna") {
+					if (event.user_id){
+						event.src.showEditForm({user_id:event.user_id,type:"myna"})
+					} else {
+						event.src.showEditForm()
+					}
+
+				} else {
+					Ext.widget("user_login_add",{auth_type:event.type,user_id:event.user_id})
+				}
+
+			},
 			showGroups:function () {
 				U.addCenterTab({
 					id:"vGroupsGrid",
@@ -1526,6 +1562,36 @@ var controllers=[]
 								var view = btn.up("group_grid")
 								view.showEditForm()
 							}
+						},{
+							xtype:"combo",
+							fieldLabel:"Add Group",
+							labelWidth:60,
+							width:250,
+							store:{
+								type:"direct",
+								directFn:$FP.UserLogin.getAuthTypes,
+								fields:[
+									"auth_type",
+									"prettyName"
+								],
+								autoLoad:true
+							},
+							displayField:"prettyName",
+							valueField:"auth_type",
+							queryMode:"local",
+							editable:false,
+							listeners:{
+								select:function (combo, records) {
+									if (!records.length) return;
+									var type = records[0].get("auth_type");
+									var view = combo.up("group_grid")
+									view.fireEvent("add_group",{
+										src:view,
+										type:type
+									})
+									combo.setValue("")
+								}
+							}
 						}],
 						editFormConfig:{
 							xtype:"group_form",
@@ -1542,7 +1608,7 @@ var controllers=[]
 					})
 				}
 			})
-		/* ----------- group_form ----------------------------------------- */
+		/* ----------- group_form ------------------------------------------ */
 			Ext.define('App.view.groupForm', {
 				extend: 'Ext.form.Panel',
 				alias:'widget.group_form',
@@ -1642,7 +1708,7 @@ var controllers=[]
 					
 				}
 			})		
-		/* ----------- group_users_grid ----------------------------------------- */
+		/* ----------- group_users_grid ------------------------------------- */
 			Ext.define('App.view.GroupUsersGrid', {
 				extend: 'univnm.ext.SupaGrid',
 				alias:'widget.group_users_grid',
@@ -1698,7 +1764,79 @@ var controllers=[]
 				}
 
 			})
-			
+		/* ----------- group_add -------------------------------------------- */
+			Ext.define('App.view.UserLoginAdd', {
+				extend: 'Ext.window.Window',
+				alias:'widget.group_add',
+				title:"Add Group",
+				autoShow:true,
+				width:800,
+				height:600,
+				layout:"fit",
+				//modal:true,
+				initComponent:function () {
+					var fireSearchEvent = function (trigger) {
+						var view = trigger.up("group_add")
+						view.fireEvent("search",{
+							src:view,
+							value:trigger.getValue()
+						})
+					}
+					var $this= this;
+					Ext.apply(this,{
+						//frame:true,
+						items:[{
+							//xtype::"form",
+							xtype:"supagrid",
+							store:{
+								type:"direct",
+								directFn:$FP.UserGroup.searchByAuthType,
+								fields:[
+									"name",
+									"id"
+								]
+							},
+							loadMask:true,
+							columns:[
+
+								{dataIndex:"name", flex:1, renderer:U.linkRenderer}
+							].map(function (row) {
+								row.text = row.dataIndex.replace(/_/g," ").titleCap()
+								return row
+							}),
+							tbar:[{
+								xtype:"trigger",
+								fieldLabel:"Search for group",
+								onTriggerClick:function () {
+									fireSearchEvent(this);
+								},
+								triggerBaseCls:"x-form-search-trigger x-form-trigger",
+								enableKeyEvents:true,
+								listeners:{
+									keydown:function (trigger,e) {
+										if (e.keyCode == 13){
+											fireSearchEvent(trigger);			
+										}
+									}
+								}
+							}],
+							listeners:{
+								itemclick:function (grid, record) {
+									var view= grid.up("group_add");
+									view.fireEvent("add_group",{
+										src:view,
+										type:view.auth_type,
+										name:record.get("name"),
+										id:record.get("id")
+									})
+								}
+							}
+						}]
+					})
+					this.callParent(arguments);
+					
+				}
+			})	
 /*  */
 
 /* ----------- Application definition: App ---------------------------- */

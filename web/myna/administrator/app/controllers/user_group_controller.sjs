@@ -89,5 +89,28 @@
 		result.data = bean.data
 		return result
 	}
+/* ---------- searchByAuthType ---------------------------------------------- */
+	function searchByAuthType(params){
+		var authType = params.type.replace(/[^\w\.\-]/g,"");
+		var adapter = Myna.Permissions.getAuthAdapter(authType)
+		try{
+			return adapter.searchGroups(params.search.replace(/[^\w\.\-\ '"]/g,""));
+		} catch(e){
+			return [{title:'<textarea cols="50" rows="25">{0}</textarea>'.format(
+				"Error in AuthType connector:\n\n" + String(e)
+				)}]
+		}
+	}
+/* ---------- addGroupFromAdapter ---------------------------------------------------------- */
+	function addGroupFromAdapter(params){
+		params.checkRequired("type","name")
+		var authType = params.type.replace(/[^\w\.\-]/g,"");
+		var adapter = Myna.Permissions.getAuthAdapter(authType)
+		var group =adapter.importGroup(params.name);
 
+		return {
+			success:true,
+			group:group.data
+		}
+	}
 
