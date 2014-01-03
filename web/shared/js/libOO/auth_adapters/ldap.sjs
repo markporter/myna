@@ -163,6 +163,10 @@ var editConfig={
 					name:"attributeMap/email",
 					value:"mail"
 				},{
+					fieldLabel:"Distinguished Name",
+					name:"attributeMap/dn",
+					value:"distinguishedName"
+				},{
 					fieldLabel:"Group Membership",
 					name:"attributeMap/member_group",
 					value:"memberOf"
@@ -174,7 +178,7 @@ var editConfig={
 					fieldLabel:"Group Member",
 					name:"attributeMap/group_member",
 					value:"member"
-				},
+				}
 			]
 	}]
 }
@@ -263,6 +267,68 @@ function syncGroups(login,user_id) {
 		})
 		group.addUsers(user_id)
 	})
+}
+
+function importGroup(name) {
+	var $this = this;
+	//clear existing memberships
+	var appname = "{adapter}_{auth_type}".format(this.config)
+	var group = Myna.Permissions.addUserGroup({
+		name:name,
+		appname:appname,
+		description:"Imported group from provider '{auth_type}'".format($this.config)
+	})
+	var groupLdap = this.getLdap().lookup(name)
+	//return Myna.printDump(groupLdap,"",5);
+
+	new Myna.Query({
+		ds:"myna_permissions",
+		sql:<ejs>
+			delete
+					
+			from
+				user_group_members
+			where 
+				
+				user_group_id in (
+					select user_group_id 
+					from user_groups ug
+					where ug.appname = {appname}
+				)
+
+
+				
+		</ejs>,
+		values:{
+			appname:appname
+		}
+	});
+
+
+	// import members	
+	groupLdap
+		.attributes[$this.config.attributeMap.group_member||"member"]
+		.forEach(function (dn) {
+			//try{
+				var userLdap = $this.getLdap().lookup(dn)
+				var userObj = {
+					login:"",
+					first_name:"",
+					last_name:"",
+					middle_name:"",
+					title:""
+				}
+				$this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
+					if (ldap_attribute in userLdap.attributes){
+						userObj[myna_attribute] = userLdap.attributes[ldap_attribute][0];
+					}
+				})
+				var user = Myna.Permissions.addUser(userObj)
+				user.setLogin({type:$this.config.auth_type,login:userObj.login})
+				group.addUsers(user.user_id)
+			//} catch(e) {}
+		})
+	return group;
 }
 
 
@@ -360,6 +426,42 @@ function searchUsers(search){
 			return result;
 		}),
 		columns:"login,first_name,last_name,middle_name,email,title"
+	})
+	
+}
+
+function searchGroups(search){
+	var $this = this;
+	var qry ="(|";
+	
+	$this.config.search_columns.split(/,/).forEach(function(col){
+		 qry +="("+col+"=" + "*"+search +"*)"
+	})
+	
+	qry +=")";
+	
+	if (Object.prototype.hasOwnProperty.call($this.config,"group_filter")){
+		  qry = "(&" + $this.config.group_filter + qry + ")"
+	}
+
+	var nameAttr = $this.config.attributeMap.login||"cn"
+	
+	
+	
+	Myna.log("debug","ldap search qry " + qry);
+	return new Myna.DataSet({
+		data:$this.getLdap().search(qry,nameAttr)
+		.filter(function(row){
+			return row.attributes[nameAttr].length
+		})
+		.map(function(row){
+			return {
+				name:row.name,
+				id:$this.config.auth_type + "/" + row.name
+			}
+			
+		}),
+		columns:"name,id"
 	})
 	
 }
