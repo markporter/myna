@@ -432,7 +432,7 @@
 		if (!s2 && s1.length) return false;
 		if (!caseSensitive){
 			s1 = this.toLowerCase();
-			s2 = str.toLowerCase();;
+			s2 = str.toLowerCase();
 		}
 		return s1.right(s2.length) == s2
 	}
@@ -934,7 +934,7 @@
 	returns the last value of a list.
 	 
 	Parameters: 
-		delimiter	- 	*Optional default ','*
+		delimiter	-	*Optional default ','*
 						String delimiter between values 
 		qualifier	-	*Optional, default null* 
 						String that is on both sides of values in the string
@@ -1681,7 +1681,7 @@
 		if (!s2 && s1.length) return false
 		if (!caseSensitive){
 			s1 = this.toLowerCase();
-			s2 = str.toLowerCase();;
+			s2 = str.toLowerCase();
 		}
 		return s1.left(s2.length) == s2
 		
