@@ -53,16 +53,6 @@ var controllers=[]
 							text:"&nbsp;".repeat(10)
 
 						},{
-							text:"Manage Apps",
-							//iconCls:"icon_edit_form",
-							handler:function(c){
-								var view=c.up("viewport");
-								view.fireEvent("manage_apps",{
-									src:view
-								})
-							}
-									
-						},{
 							text:"Logout",
 							iconCls:"icon_logout",
 							handler:function(){
@@ -191,7 +181,7 @@ var controllers=[]
 		}
 	}
 /* =========== General View Components ====================================== */
-/* =========== AuthTypes ============================================= */
+/* =========== AuthTypes ==================================================== */
 	/* ----------- Controller ------------------------------------------------ */
 		controllers.push("AuthType");
 		Ext.define('App.controller.AuthType', {
@@ -457,7 +447,7 @@ var controllers=[]
 					this.callParent(arguments);
 				}
 			});
-/* =========== Right ========================================================= */
+/* =========== Right ======================================================== */
 	/* ----------- Controller ----------------------------------------------- */
 		controllers.push("Right");
 		Ext.define('App.controller.Right', {
@@ -777,7 +767,7 @@ var controllers=[]
 			addUserFromAuthType:function (event) {
 				var vp = Ext.ComponentQuery.query("viewport").first();
 				var userGrid = vp.down("supagrid[itemId=users]")
-				$FP.User.addUserFromAuthType({
+				$FP.User.addUserFromAdapter({
 					type:event.type,
 					login:event.login,
 					user_id:event.user_id
@@ -1384,7 +1374,7 @@ var controllers=[]
 					
 				}
 			})
-/* =========== Group ========================================================= */
+/* =========== Group ======================================================== */
 	/* ----------- Controller ----------------------------------------------- */
 		controllers.push("Group");
 		Ext.define('App.controller.Group', {
@@ -1397,15 +1387,24 @@ var controllers=[]
 						}
 					},
 					group_form:{
+						remove_group:function (event) {
+							this.removeGroup(event.model,function (result) {
+								if (result.success){
+									
+									U.infoMsg("group removed.")
+									event.src.form.close()
+								}
+							})
+						},
 						save_group:function (event) {
-							this.savegroup(event.model,function (result) {
+							this.saveGroup(event.model,function (result) {
 								if (!result.success){
 									event.src.form.markInvalid(result.errors);
 								} else {
 									U.infoMsg("group saved.")
 									event.src.form.loadRecord(event.model);
-									event.src.down("group_login_grid")
-										.setgroupId(event.model.get("group_id"))
+									event.src.down("group_users_grid")
+										.setGroupId(event.model.get("group_id"))
 								}
 							})
 						}
@@ -1439,13 +1438,46 @@ var controllers=[]
 							store.getProxy().extraParams.search =event.value
 							event.src.loadFirstPage();
 						}
+					},
+					group_users_grid:{
+						show_add_user:function (event) {
+							Ext.widget("group_user_add",{
+								userGrid:event.src
+							})
+						},
+						remove_user:function (user_id,model,col,grid) {
+							var msg="Remove user {first_name} {last_name} from this group?".format(
+								model.data
+							)
+							if (confirm(msg)){
+								this.removeUser(user_id,grid.user_group_id,function (result) {
+									if (result.success && model.stores){
+										model.stores.forEach(function (store) {
+											store.remove(model)
+										})
+									}				
+								})
+							}
+						}
+						
+					},
+					group_user_add:{
+						add_user:function (event) {
+							this.addUser(
+								event.model.data.user_id,
+								event.userGrid.user_group_id,
+								function (result) {
+									if (result.success){
+										event.userGrid.getStore().add(event.model);
+										event.src.close();
+									}
+								}
+							)
+						}
 					}
-					
-
-					
 				});
 			},	
-
+			
 			addGroupFromAuthType:function (event) {
 				event.src.body.mask("importing...");
 				var vp = Ext.ComponentQuery.query("viewport").first();
@@ -1492,8 +1524,18 @@ var controllers=[]
 					title:"Manage Groups"
 				})
 			},
-			savegroup:function (model,cb) {
-				$FP.group.save(model.data,function (result) {
+			removeGroup:function (model,cb) {
+				$FP.UserGroup.remove(model.data,function (result) {
+					if (result.success && model.stores){
+						model.stores.forEach(function (store) {
+							store.remove(model)
+						})
+					}
+					cb(result)
+				})
+			},
+			saveGroup:function (model,cb) {
+				$FP.UserGroup.save(model.data,function (result) {
 					if (result.success){
 						model.set(result.data);
 						model.commit();
@@ -1503,6 +1545,21 @@ var controllers=[]
 					}
 					cb(result)
 				})
+			},
+			removeUser:function (user_id,user_group_id,cb) {
+				$FP.UserGroup.removeUser({
+					user_id:user_id,
+					user_group_id:user_group_id
+				},function (result) {
+					
+					cb(result)
+				})
+			},
+			addUser:function (user_id,user_group_id,cb) {
+				$FP.UserGroup.addUser({
+					user_id:user_id,
+					user_group_id:user_group_id
+				},cb)
 			}
 		})
 	/* =========== Views ==================================================== */
@@ -1556,13 +1613,6 @@ var controllers=[]
 						filterSuppressTitle:true,
 						paged:true,
 						tbar:[{
-							text:"Add group",
-							iconCls:"icon_add",
-							handler:function (btn) {
-								var view = btn.up("group_grid")
-								view.showEditForm()
-							}
-						},{
 							xtype:"combo",
 							fieldLabel:"Add Group",
 							labelWidth:60,
@@ -1680,8 +1730,8 @@ var controllers=[]
 								var form = view.form;
 								
 								var model = view.form.currentRecord;
-								if (confirm("Deactivate this group?")){
-									view.fireEvent("deactivate_group",{
+								if (confirm("Delete group '{name}'?".format(model.data))){
+									view.fireEvent("remove_group",{
 										src:view,
 										model:model
 									})	
@@ -1730,7 +1780,17 @@ var controllers=[]
 							]
 						},
 						columns:[
-							{dataIndex:"user_id",hidden:true},
+							{dataIndex:"user_id",
+								eventName:"remove_user", 
+								width:25,
+								qtip:"remove this user",
+								text:" ",
+								renderer:function (val) {
+									return '<img src="{0}static/images/delete.png"/>'.format(
+										appVars.appUrl
+									)
+								}
+							},
 							{dataIndex:"first_name", flex:1},
 							{dataIndex:"last_name", flex:1},
 							{dataIndex:"email", flex:1}
@@ -1742,10 +1802,16 @@ var controllers=[]
 						}),
 						//filterAutoLoad:true,
 						filterSuppressTitle:true,
-						//paged:true,
+						paged:true,
 						tbar:[{
 							text:"Add User",
-							iconCls:"icon_add"
+							iconCls:"icon_add",
+							handler:function(c){
+								var view=c.up("group_users_grid");
+								view.fireEvent("show_add_user",{
+									src:view
+								});
+							}
 						}]
 						
 					})
@@ -1764,8 +1830,46 @@ var controllers=[]
 				}
 
 			})
+		/* ----------- group_user_add --------------------------------------- */
+			Ext.define('App.view.GroupUserAdd', {
+				extend: 'Ext.window.Window',
+				alias:'widget.group_user_add',
+				title:"Add User",
+				iconCls:"icon_manage_users",
+				autoShow:true,
+				width:1000,
+				maximizable:true,
+				height:750,
+				layout:"fit",
+				modal:true,
+				initComponent:function () {
+					var $this= this;
+					Ext.apply(this,{
+						//frame:true,
+						items:[{
+							//xtype::"form",
+							xtype:"user_grid",
+							buttons:[{
+								iconCls:"icon_manage_users",
+								text:"Add Selected User",
+								handler:function(c){
+									var view=c.up("group_user_add");
+									view.fireEvent("add_user",{
+										src:view,
+										model:view.down("supagrid").getSelectionModel().selected.first(),
+										userGrid:view.userGrid
+									});
+								}
+							}]
+						}]
+					})
+					this.callParent(arguments);
+					this.down("supagrid").loadFirstPage()
+					
+				}
+			})	
 		/* ----------- group_add -------------------------------------------- */
-			Ext.define('App.view.UserLoginAdd', {
+			Ext.define('App.view.GroupAdd', {
 				extend: 'Ext.window.Window',
 				alias:'widget.group_add',
 				title:"Add Group",
@@ -1839,7 +1943,7 @@ var controllers=[]
 			})	
 /*  */
 
-/* ----------- Application definition: App ---------------------------- */
+/* ----------- Application definition: App ---------------------------------- */
 	Ext.application({
 		name: 'App',
 		controllers:controllers,

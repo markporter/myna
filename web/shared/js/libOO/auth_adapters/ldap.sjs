@@ -260,12 +260,11 @@ function syncGroups(login,user_id) {
 	});
 	//add new memberships
 	this.getGroups(login).forEach(function (dn) {
-		var group = Myna.Permissions.addUserGroup({
-			name:dn,
-			appname:appname,
-			description:"Imported group from {auth_type} provider".format($this.config)
-		})
-		group.addUsers(user_id)
+
+		var group = Myna.Permissions.getUserGroupByName(appname,dn)
+		if (group) {
+			group.addUsers(user_id);
+		} 
 	})
 }
 
@@ -323,8 +322,11 @@ function importGroup(name) {
 						userObj[myna_attribute] = userLdap.attributes[ldap_attribute][0];
 					}
 				})
-				var user = Myna.Permissions.addUser(userObj)
-				user.setLogin({type:$this.config.auth_type,login:userObj.login})
+				var user = Myna.Permissions.getUserByLogin($this.config.auth_type,userObj.login);
+				if (!user){
+					user = Myna.Permissions.addUser(userObj)
+					user.setLogin({type:$this.config.auth_type,login:userObj.login})
+				}
 				group.addUsers(user.user_id)
 			//} catch(e) {}
 		})
@@ -444,11 +446,11 @@ function searchGroups(search){
 		  qry = "(&" + $this.config.group_filter + qry + ")"
 	}
 
-	var nameAttr = $this.config.attributeMap.login||"cn"
+	var nameAttr = $this.config.attributeMap.dn||"distinguishedName"
 	
 	
 	
-	Myna.log("debug","ldap search qry " + qry);
+	//Myna.log("debug","ldap search qry " + qry);
 	return new Myna.DataSet({
 		data:$this.getLdap().search(qry,nameAttr)
 		.filter(function(row){
@@ -456,7 +458,7 @@ function searchGroups(search){
 		})
 		.map(function(row){
 			return {
-				name:row.name,
+				name:row.attributes[nameAttr].first(),
 				id:$this.config.auth_type + "/" + row.name
 			}
 			

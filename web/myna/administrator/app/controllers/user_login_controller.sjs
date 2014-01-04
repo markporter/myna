@@ -34,10 +34,13 @@
 
 /* ---------- save ---------------------------------------------------------- */
 	function save(params){
-		var bean = this.model.get(params);
-		var result = bean.save()
-		result.data = bean.data
-		return result;
+		var user = Myna.Permissions.getUserById(params.user_id)
+		user.setLogin(params)
+		
+		return {
+			success:true,
+			data:params
+		};
 	}
 /* ---------- searchByAuthType ---------------------------------------------- */
 	function searchByAuthType(params){

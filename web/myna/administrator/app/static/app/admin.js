@@ -176,7 +176,6 @@ Ext.override(Ext.view.AbstractView, {
 									if (path){
 										$FP.Main.updateFpApp({path:path},function (result) {
 											U.infoMsg(result.message);
-											console.log(result)
 										})
 									}
 								} 
@@ -658,7 +657,6 @@ Ext.override(Ext.view.AbstractView, {
 					this.loadRecord(this.current_record);
 					this.matchLocation();
 					this.on("beforegridload",function (fp,record) {
-						console.log(arguments)
 						fp.form.findField("name").setDisabled(!!record.data.name)
 							
 					})
@@ -743,7 +741,6 @@ Ext.override(Ext.view.AbstractView, {
 				$FP.Setting.saveSettings(
 					formPanel.form.getFieldValues(),
 					U.directMask(formPanel,function(result){
-						console.log(result);
 						U.infoMsg("Settings Saved.");
 					})
 				);

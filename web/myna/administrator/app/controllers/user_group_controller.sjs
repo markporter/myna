@@ -46,7 +46,7 @@
 		} 
 		
 	}
-/* ---------- getUsers ---------------------------------------------------------- */
+/* ---------- getUsers ------------------------------------------------------ */
 	function getUsers(params){
 		if (!params.sort){
 			params.sort=[{
@@ -89,6 +89,29 @@
 		result.data = bean.data
 		return result
 	}
+/* ---------- addUser ---------------------------------------------------------- */
+	function addUser(params){
+		Myna.Permissions
+			.getUserGroupById(params.user_group_id)
+			.addUsers(params.user_id)
+		return {
+			success:true
+		}
+	}
+/* ---------- removeUser -------------------------------------------------------- */
+	function removeUser(params){
+		Myna.Permissions
+			.getUserGroupById(params.user_group_id)
+			.removeUsers(params.user_id)
+		return {
+			success:true
+		}
+	}
+/* ---------- remove -------------------------------------------------------- */
+	function remove(params){
+		this.model.remove(params.user_group_id)
+		return {success:true}
+	}
 /* ---------- searchByAuthType ---------------------------------------------- */
 	function searchByAuthType(params){
 		var authType = params.type.replace(/[^\w\.\-]/g,"");
@@ -101,7 +124,7 @@
 				)}]
 		}
 	}
-/* ---------- addGroupFromAdapter ---------------------------------------------------------- */
+/* ---------- addGroupFromAdapter ------------------------------------------- */
 	function addGroupFromAdapter(params){
 		params.checkRequired("type","name")
 		var authType = params.type.replace(/[^\w\.\-]/g,"");
