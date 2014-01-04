@@ -1,3 +1,23 @@
+Release Name: 1.11.0
+============================
+Notes: Added new Permissions manager to Myna Administrator, and enhanced Active Directory LDAP support
+
+* **[ADD]**         Added New UI for Permissions management in Myna Adminstrator. 
+* **[ADD]**         Added AuthTypes section to Permissions UI for setting up LDAP auth types, and any future connectors
+* **[ADD]**         Added ability to import a group from LDAP/AD and all of it's members
+* **[ADD]**         Added Authtype manager to Myna.Admin
+* **[ADD]**         FlightPath: Controller.addAction() for adding controller actions at run time
+* **[ADD]**         LDAP Auth Adapter: added new functions syncGroups, getGroups, searchGroups
+* **[ADD]**         Myna.Ldap.lookup(dn) for retrieving attributes for a specific DN
+* **[ADD]**         Successfull login with an ldap adapter now automatically all imported LDAP groups the user is a member of
+* **[CHANGE]**      Added edit config to LDAP auth adapter
+* **[CHANGE]**      Changed default general properties to disable strict warnings
+* **[CHANGE]**      deprecated the "map" property in LDAP auth adataper configs in favor of attributeMap. Older configs will still work
+* **[FIX]**         FlightPath: ModelSearchList behavior now properly creates a "list" action
+* **[FIX]**         FlightPath: action parameters that match Object prototype properties are no longer filtered
+* **[FIX]**         ValidationResult.addError no longer throws errors if the message contains regex symbols
+
+----------------------------------------------------------
 Release Name: 1.10.3
 ============================
 Notes: Minor additions and bug fixes
