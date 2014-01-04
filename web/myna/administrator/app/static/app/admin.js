@@ -164,7 +164,8 @@ Ext.override(Ext.view.AbstractView, {
 								
 								iconCls:"icon_perms",
 								handler:function(){
-									window.open(appUrl + "main/manage_perms");
+									//window.open(appUrl + "main/manage_perms");
+									window.open(appUrl + "perms");
 								}
 								
 							},{

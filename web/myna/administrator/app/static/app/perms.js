@@ -71,8 +71,15 @@ var controllers=[]
 							//hidden:true,
 							xtype:"tabpanel",
 							autoDestroy:true,
-							defaults:{closable:false},
+							defaults:{
+								closable:false,
+							},
 							items:[
+								{
+									id:"vAuthTypes",
+									xtype:"auth_type_main",
+									iconCls:"icon_adapter"
+								},
 								{
 									id:"vUsersGrid",
 									xtype:"user_grid",
@@ -85,14 +92,10 @@ var controllers=[]
 								},
 								{
 									id:"vGroups",
-									xtype:"group_grid"
+									xtype:"group_grid",
 									
-								},
-								{
-									id:"vAuthTypes",
-									xtype:"auth_type_main",
-									iconCls:"icon_adapter"
 								}
+								
 
 							],
 							listeners: {
@@ -261,7 +264,7 @@ var controllers=[]
 				);
 				
 			
-			},	
+			}
 			
 			
 			
@@ -336,7 +339,6 @@ var controllers=[]
 					
 					this.callParent(arguments);
 					this.on("beforegridload",function (fp,record) {
-						console.log(arguments)
 						fp.removeAll(false);
 						fp.add(appVars.authAdapters[record.data.adapter].items
 							.concat([{
@@ -350,7 +352,6 @@ var controllers=[]
 						if (record.data.auth_type){//existing
 							fp.body.mask("Loading...")
 							$FP.AuthType.get({id:record.data.auth_type},function (result) {
-								console.log(result)
 								fp.form.setValues(result)
 								var subvalues={}
 
@@ -537,7 +538,6 @@ var controllers=[]
 						store:{
 							type:"right"
 						},
-						
 						columns:[
 							{dataIndex:"right_id", renderer:U.linkRenderer, filterable:false},
 							{dataIndex:"appname" },
@@ -564,6 +564,7 @@ var controllers=[]
 						}],
 						editFormConfig:{
 							xtype:"right_form",
+							editTriggerCol:"right_id",
 							position:"right"
 						}
 					})
@@ -963,6 +964,7 @@ var controllers=[]
 							}],
 						editFormConfig:{
 							xtype:"user_form",
+							editTriggerCol:"user_id",
 							position:"right"
 						}
 					})
@@ -1405,6 +1407,8 @@ var controllers=[]
 									event.src.form.loadRecord(event.model);
 									event.src.down("group_users_grid")
 										.setGroupId(event.model.get("group_id"))
+									event.src.down("group_rights_grid")
+										.setGroupId(event.model.get("group_id"))
 								}
 							})
 						}
@@ -1464,11 +1468,56 @@ var controllers=[]
 					group_user_add:{
 						add_user:function (event) {
 							this.addUser(
-								event.model.data.user_id,
+								event.models.items.map(function (model) {
+									return model.data.user_id
+								}).join(),
 								event.userGrid.user_group_id,
 								function (result) {
 									if (result.success){
-										event.userGrid.getStore().add(event.model);
+										event.models.items.forEach(function (model) {
+											event.userGrid.getStore().add(model);	
+										})
+										event.src.close();
+									}
+								}
+							)
+						}
+					},
+					group_rights_grid:{
+						show_add_right:function (event) {
+							Ext.widget("group_right_add",{
+								rightGrid:event.src
+							})
+						},
+						remove_right:function (right_id,model,col,grid) {
+							var msg="Remove right {appname}/{name} from this group?".format(
+								model.data
+							)
+							if (confirm(msg)){
+								this.removeRight(right_id,grid.user_group_id,function (result) {
+									if (result.success && model.stores){
+										model.stores.forEach(function (store) {
+											store.remove(model)
+										})
+									}				
+								})
+							}
+						}
+						
+					},
+					group_right_add:{
+						add_right:function (event) {
+							this.addRight(
+								event.models.items.map(function (model) {
+									return model.data.right_id
+								}).join(),
+								event.rightGrid.user_group_id,
+								function (result) {
+									if (result.success){
+										event.models.items.forEach(function (model) {
+											event.rightGrid.getStore().add(model);	
+										})
+										
 										event.src.close();
 									}
 								}
@@ -1560,6 +1609,21 @@ var controllers=[]
 					user_id:user_id,
 					user_group_id:user_group_id
 				},cb)
+			},
+			removeRight:function (right_id,user_group_id,cb) {
+				$FP.UserGroup.removeRight({
+					right_id:right_id,
+					user_group_id:user_group_id
+				},function (result) {
+					
+					cb(result)
+				})
+			},
+			addRight:function (right_id,user_group_id,cb) {
+				$FP.UserGroup.addRight({
+					right_id:right_id,
+					user_group_id:user_group_id
+				},cb)
 			}
 		})
 	/* =========== Views ==================================================== */
@@ -1601,7 +1665,11 @@ var controllers=[]
 						columns:[
 							{dataIndex:"user_group_id", renderer:U.linkRenderer},
 							{dataIndex:"name",flex:1, filterable:true},
-							{dataIndex:"appname",width:200, filterable:true},
+							{dataIndex:"appname",
+								width:200, 
+								filterable:true
+								
+							},
 							{dataIndex:"description", flex:2, filterable:true}
 						].map(function (row) {
 							return Ext.applyIf(row,{
@@ -1696,13 +1764,14 @@ var controllers=[]
 								xtype:"group_users_grid",
 								autoScroll:true,
 								iconCls:"icon_manage_users",
-								frame:true,
+								frame:true
 								
 							},{
 								title:"Rights",
+								xtype:"group_rights_grid",
 								autoScroll:true,
 								iconCls:"icon_manage_rights",
-								frame:true,
+								frame:true
 								
 							}]
 						}]),
@@ -1752,12 +1821,126 @@ var controllers=[]
 					this.addListener("beforegridload",function (fp,record) {
 
 						this.down("group_users_grid").setGroupId(record.get("user_group_id"));
-						//this.down("group_rights_grid").setGroupId(record.get("user_group_id"));
+						this.down("group_rights_grid").setGroupId(record.get("user_group_id"));
 
 					})
 					
 				}
 			})		
+		/* ----------- group_rights_grid ------------------------------------- */
+			Ext.define('App.view.GroupRightsGrid', {
+				extend: 'univnm.ext.SupaGrid',
+				alias:'widget.group_rights_grid',
+				
+				initComponent:function () {
+					var $this = this;
+					
+					Ext.apply(this,{
+						iconCls:"icon_manage_rights",
+						store:{
+							type:"direct",
+							directFn:$FP.UserGroup.getRights,
+							root:"data",
+							fields:[
+								"right_id",
+								"appname",
+								"name",
+								"description"
+							]
+						},
+						columns:[
+							{dataIndex:"right_id",
+								eventName:"remove_right", 
+								width:25,
+								qtip:"remove this right",
+								text:" ",
+								renderer:function (val) {
+									return '<img src="{0}static/images/delete.png"/>'.format(
+										appVars.appUrl
+									)
+								}
+							},
+							{dataIndex:"appname" },
+							{dataIndex:"name" },
+							{dataIndex:"description", flex:1 }
+						].map(function (row) {
+							return Ext.applyIf(row,{
+								text:App.model.Right.fields[row.dataIndex].label
+								
+							})
+						}),
+						//filterAutoLoad:true,
+						filterSuppressTitle:true,
+						paged:true,
+						tbar:[{
+							text:"Add Right",
+							iconCls:"icon_add",
+							handler:function(c){
+								var view=c.up("group_rights_grid");
+								view.fireEvent("show_add_right",{
+									src:view
+								});
+							}
+						}]
+						
+					})
+					
+					this.callParent(arguments);
+					this.setGroupId = function (user_group_id) {
+						if (!user_group_id) return;
+						this.user_group_id = user_group_id;
+						this.getStore().getProxy().extraParams={
+							user_group_id:user_group_id
+						}
+						//this.loadFirstPage();
+						this.getStore().load();
+					}
+					
+				}
+
+			})
+		/* ----------- group_right_add --------------------------------------- */
+			Ext.define('App.view.GroupRightAdd', {
+				extend: 'Ext.window.Window',
+				alias:'widget.group_right_add',
+				title:"Add Right",
+				iconCls:"icon_manage_rights",
+				autoShow:true,
+				width:1000,
+				maximizable:true,
+				height:750,
+				layout:"fit",
+				modal:true,
+				initComponent:function () {
+					var $this= this;
+					Ext.apply(this,{
+						//frame:true,
+						items:[{
+							//xtype::"form",
+							xtype:"right_grid",
+							selType: 'checkboxmodel',
+							selModel: {
+								mode: 'MULTI'
+							},
+							buttons:[{
+								iconCls:"icon_manage_rights",
+								text:"Add Selected Rights",
+								handler:function(c){
+									var view=c.up("group_right_add");
+									view.fireEvent("add_right",{
+										src:view,
+										models:view.down("supagrid").getSelectionModel().selected,
+										rightGrid:view.rightGrid
+									});
+								}
+							}]
+						}]
+					})
+					this.callParent(arguments);
+					this.down("supagrid").loadFirstPage()
+					
+				}
+			})	
 		/* ----------- group_users_grid ------------------------------------- */
 			Ext.define('App.view.GroupUsersGrid', {
 				extend: 'univnm.ext.SupaGrid',
@@ -1849,14 +2032,18 @@ var controllers=[]
 						items:[{
 							//xtype::"form",
 							xtype:"user_grid",
+							selType: 'checkboxmodel',
+							selModel: {
+								mode: 'MULTI'
+							},
 							buttons:[{
-								iconCls:"icon_manage_users",
-								text:"Add Selected User",
+								iconCls:"icon_add",
+								text:"Add Selected Users",
 								handler:function(c){
 									var view=c.up("group_user_add");
 									view.fireEvent("add_user",{
 										src:view,
-										model:view.down("supagrid").getSelectionModel().selected.first(),
+										models:view.down("supagrid").getSelectionModel().selected,
 										userGrid:view.userGrid
 									});
 								}

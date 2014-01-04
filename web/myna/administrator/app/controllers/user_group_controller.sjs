@@ -82,6 +82,43 @@
 			totalRows:beans.totalRows
 		} 
 	}
+/* ---------- getRights ------------------------------------------------------ */
+	function getRights(params){
+		if (!params.sort){
+			params.sort=[{
+				property:"appname",
+				direction:"asc"
+			}]
+			
+		}
+		
+		var ug = this.model.getById(params.user_group_id)
+		var $this = this;
+		var criteria = params.filter(function(v,k){
+			if ( $this.model.columnNames.contains(k) && v){
+				return true;
+			}
+		}).map(function(v,k){
+			return "%" +String(v).toLowerCase()+"%"
+		})
+		
+		criteria.orderBy =params.sort.map(function(def){
+			return def.property + " " + def.direction
+		}).join()
+		
+		var meta = {
+			page:params.page,
+			pageSize:params.limit
+		}
+		//var beans=ug.Rights(criteria,meta)
+		var beans=ug.Rights()
+
+		return {
+			data:beans,
+			totalRows:beans.totalRows
+		} 
+	}
+
 /* ---------- save ---------------------------------------------------------- */
 	function save(params){
 		var bean = this.model.get(params);
@@ -98,6 +135,24 @@
 			success:true
 		}
 	}
+/* ---------- addRight ---------------------------------------------------------- */
+	function addRight(params){
+		Myna.Permissions
+			.getUserGroupById(params.user_group_id)
+			.addRights(params.right_id)
+		return {
+			success:true
+		}
+	}
+/* ---------- removeRight -------------------------------------------------------- */
+	function removeRight(params){
+		Myna.Permissions
+			.getUserGroupById(params.user_group_id)
+			.removeRights(params.right_id)
+		return {
+			success:true
+		}
+	}
 /* ---------- removeUser -------------------------------------------------------- */
 	function removeUser(params){
 		Myna.Permissions
@@ -107,6 +162,7 @@
 			success:true
 		}
 	}
+
 /* ---------- remove -------------------------------------------------------- */
 	function remove(params){
 		this.model.remove(params.user_group_id)
