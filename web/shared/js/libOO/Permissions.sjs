@@ -600,6 +600,48 @@ if (!Myna) var Myna={}
 				return null;	
 			}
 		},
+	/* Function: getRightModel
+		returns a validating model (see <Myna.DataManager.getManager> )
+	
+		Parameters:
+			baseModel	-	*Optional*
+							If an existing model is passed in, it will be 
+							modified with the proper validation, fieldnames, 
+							etc and returned
+		*/
+		getRightModel:function (baseModel) {
+			var model = baseModel || new Myna.DataManager("myna_permissions").getManager("rights");
+			model.setLabels({
+				appname:"Application AppName",
+				name:"Right Name"
+			})
+
+			var name = {
+				pattern:/^[\w \d-']+$/,
+				message:"Can only contain numbers, letters, spaces and these symbols  -_'"
+			}
+			//model.setDefault("created",function () {return new Date()});
+			/*model.setMassAssignable([
+				
+			])*/
+
+
+			model.addValidators({
+				name:{
+					required:{},
+					regex:name
+				},
+				appname:{
+					required:{},
+					regex:name
+				}
+			})
+
+			Myna.Permissions.Right.prototype.applyTo(model.beanClass.prototype)
+			
+
+			return model;
+		},
 	/* Function: getRightByName
 			returns the right object that matches the supplied name and appname, or 
 			returns null
@@ -770,6 +812,7 @@ if (!Myna) var Myna={}
 						user = $this.addUser(adapter.getUserByLogin(login))
 						user.setLogin({type:type,login:login})
 					}
+					if (adapter.syncGroups) adapter.syncGroups(login,user.user_id)
 					user_ids.push(user.get_user_id());
 				}
 			})

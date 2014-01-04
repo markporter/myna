@@ -18,6 +18,219 @@
 */
 if (!Myna) var Myna={};
 Myna.Admin ={
+/* Auth Types */	
+	authtype:{
+	/* Property: Myna.Admin.authtype.validation
+		a <Myna.Validation> object for validating Auth Type configs
+		
+		*/
+		validation:new Myna.Validation().setLabels({
+			auth_type:"AuthType Name",
+			prettyName:"Display Name",
+			desc:"Description"
+		}).addValidators({
+			prettyName:{
+				required:true
+			},
+			
+			adapter:{
+				type:"string", 
+				required:true,
+				list:{
+					oneOf:new Myna.File("/shared/js/libOO/auth_adapters")
+						.listFiles("sjs")
+						.map(function (f) {
+							return f.fileName.listBefore(".")
+						})
+						.filter(function (adapter) {
+							return !"server_admin,myna".listContains(adapter)
+						})
+				}
+			},
+			auth_type:{ 
+				type:"string",
+				required:true, 
+				list:{
+					notOneOf:["myna","server_admin"]
+				},
+				regex:{
+					pattern:/^[A-Za-z]\w*$/,
+					message:"Invalid name format. Must start with a letter, and only contain letters, numbers or the _ character"
+				},
+				custom:function(params){
+					var v = new Myna.ValidationResult();
+					if (params.obj.isNew && Myna.Admin.authtype.exists(params.value)){
+						v.addError(
+							"Auth type '{0}' already exists. Please choose another name.".format(params.value),
+							"auth_type"
+						);
+					}
+					return v;
+				}
+			}
+		}),
+	
+	/* Function: Myna.Admin.authtype.exists 
+		returns true if an AuthType with the supplied name exists.
+		
+		Parameters:
+			name		-	name of a data source
+		*/
+		exists:function(name){
+			return this.getAll().contains(function(authtype){
+				return authtype.auth_type == name;
+			});
+		},
+	/* Function: Myna.Admin.authtype.getAll
+		returns an array of AUTHTYPE structures currently configured
+			
+			
+		*/
+		getAll:function getAll(){
+			return new Myna.File("/WEB-INF/myna/auth_types")
+				.listFiles()
+				.filter(function (f) {
+					return /^[A-Za-z]\w*$/.test(f.fileName)
+				})
+				.map(function (f) {
+					return new Myna.File("/WEB-INF/myna/auth_types/",f.fileName).readString().parseJson()
+				})
+		},
+	/* Function: Myna.Admin.authtype.getAdapterNames
+		returns an array of Auth Adapter names available on the system
+			
+			
+		*/
+		getAuthAdapterNames:function getAuthAdapterNames(){
+			return new Myna.File("/shared/js/libOO/auth_adapters")
+				.listFiles("sjs")
+				.map(function (f) {
+					return f.fileName.listBefore(".")
+				})
+		},
+	/* Function: Myna.Admin.authtype.getAuthAdapterMap
+		returns a map of Auth Adapters available on the system, keyed by adapter name
+			
+			
+		*/
+		getAuthAdapterMap:function getAuthAdapterMap(){
+			var result={}
+			this.getAuthAdapterNames().forEach(function (name) {
+				result[name] = Myna.include("/shared/js/libOO/auth_adapters/" + name +".sjs",{});
+			})
+			return result
+		},
+	/* Function: Myna.Admin.authtype.getMap
+		returns a map of all AUTHTYPE structures currently configured
+			
+			
+		*/
+		getMap:function getDataSources(){
+			var result={}
+			this.getAll().forEach(function (a) {
+				result[a.auth_type] = a
+			})
+			return result
+		},
+		
+	/* Function: Myna.Admin.authtype.save 
+		updates an auth type
+		
+		Parameters:
+			config		-	Config Object, see *Config* below. Some adapters support additional 
+							config properties
+			isNew		-	set to true for new auth types. This checks for the 
+							existence if a same-named type and prevents 
+							overwrites 
+			
+		Config:
+			auth_type		-	Name of auth type. Must start with at least one letter
+								and consist of only numbers, letters and the underbar(_)
+								Must also be unique in regards to all other auth types.
+								Note that the auth types "myna" and "server_admin" are 
+								predefined and cannot be edited
+
+			prettyName		-	Display name for this auth type
+
+			adapter			-	auth adapter name (see /shared/js/libOO/auth_adapters). 
+								Note that the adapters "myna" and "server_admin" are 
+								predefined and cannot be used in new auth types
+			
+			desc			-	*Optional, default null*
+								A description of this data source
+			
+			
+								
+			
+		Note:
+			individual adapters may have more config properties
+			
+		
+			
+		Returns:
+		<Myna.ValidationResult>
+				
+		*/
+		save:function(config,isNew){
+			if(!config) config={}
+			
+			var v = this.validate(config,isNew);
+			if (v.success){
+				new Myna.File("/WEB-INF/myna/auth_types",config.auth_type)
+					.writeString(
+						JSON.stringify(
+							config,
+							null,
+							"    "
+						)
+					)
+			}
+			
+			return v;
+		},
+	/* Function: Myna.Admin.authtype.remove 
+		updates an auth type
+		
+		Parameters:
+			auth_type		-	Auth type name to remove
+		
+			
+				
+		*/
+		remove:function(auth_type){
+			new Myna.File("/WEB-INF/myna/auth_types",auth_type).forceDelete()
+		},
+	/* Function: Myna.Admin.authtype.validate 
+		validates a data source config	
+	
+		Parameters:
+			config		-	JS Object representing the data for a data source, see <save>
+			isNew			-	Boolean. If true, AuthType name will also be checked for uniqueness
+			
+		Returns:
+		<Myna.ValidationResult>
+				
+		*/
+		validate:function(config,isNew){
+			var v= new Myna.ValidationResult();
+			if (!config) {
+				v.addError("No auth type configuration provided.");
+				return v;
+			}
+			
+			config.isNew = isNew;
+			v.merge(this.validation.validate(config));
+
+			if (v.success){
+				var authAdapter = Myna.include("/shared/js/libOO/auth_adapters/" +config.adapter +".sjs",{});
+				if (authAdapter.validate){
+					v.merge(authAdapter.validate(config))
+				}
+			}
+			return v;
+		}
+	},
+
 /* Data Sources */	
 	ds:{
 	/* Property: Myna.Admin.ds.dsValidation
@@ -37,7 +250,7 @@ Myna.Admin ={
 				},
 				custom:function(params){
 					var v = new Myna.ValidationResult();
-					if (params.obj.isNew && Myna.Admin.ds.exists(params.valuename)){
+					if (params.obj.isNew && Myna.Admin.ds.exists(params.value)){
 						v.addError(
 							"A DataSource '{0}' already exists. Please choose another name.".format(params.value),
 							"driver"

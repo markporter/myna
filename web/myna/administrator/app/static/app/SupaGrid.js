@@ -784,11 +784,11 @@ Ext.define('univnm.ext.SupaGrid', {
 									grid.ownerCt.doLayout();
 								}
 							};
+							form.reset();
 							if (panel.fireEvent("beforegridload",panel,record) !==false){
-								form.reset();
 								form.loadRecord(record);
-								grid.el.unmask();
 							}
+							grid.el.unmask();
 						},100);
 							
 						

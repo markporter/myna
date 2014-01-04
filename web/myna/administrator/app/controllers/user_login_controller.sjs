@@ -34,19 +34,27 @@
 
 /* ---------- save ---------------------------------------------------------- */
 	function save(params){
-		var bean = this.model.get(params);
-		var result = bean.save()
-		result.data = bean.data
-		return result;
+		var user = Myna.Permissions.getUserById(params.user_id)
+		user.setLogin(params)
+		
+		return {
+			success:true,
+			data:params
+		};
 	}
-/* ---------- searchByAuthType ---------------------------------------------------------- */
+/* ---------- searchByAuthType ---------------------------------------------- */
 	function searchByAuthType(params){
 		var authType = params.type.replace(/[^\w\.\-]/g,"");
 		var adapter = Myna.Permissions.getAuthAdapter(authType)
-
-		return adapter.searchUsers(params.search.replace(/[^\w\.\-\ '"]/g,""));
+		try{
+			return adapter.searchUsers(params.search.replace(/[^\w\.\-\ '"]/g,""));
+		} catch(e){
+			return [{title:'<textarea cols="50" rows="25">{0}</textarea>'.format(
+				"Error in AuthType connector:\n\n" + String(e)
+				)}]
+		}
 	}
-/* ---------- remove ---------------------------------------------------------- */
+/* ---------- remove -------------------------------------------------------- */
 	function remove(params){
 		var result = new Myna.ValidationResult
 		try{
@@ -70,7 +78,7 @@
 	}
 
 
-/* ---------- getAuthTypes ---------------------------------------------------------- */
+/* ---------- getAuthTypes -------------------------------------------------- */
 	function getAuthTypes(params){
 		
 		return Myna.Permissions.getAuthTypes()

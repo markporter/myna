@@ -183,18 +183,20 @@ var editConfig={
 	}]
 }
 
-
 //check the config file for needed values
-this.config.checkRequired([
-	"server",
-	"search_columns",
-	"map"	
-]);
-this.config.map.checkRequired([
-	"login",
-	"first_name",
-	"last_name"
-]);
+if (this.config){
+	this.config.checkRequired([
+		"server",
+		"search_columns",
+		"map"	
+	]);
+	if ("map" in config && typeof config.map == "object") config.attributeMap = config.map;
+	this.config.attributeMap.checkRequired([
+		"login",
+		"first_name",
+		"last_name"
+	]);
+}
 
 function getLdap(){
 	var ldap;
@@ -209,7 +211,62 @@ function getLdap(){
 	return ldap;	
 }
 
+function getGroups(login){
+	var $this = this;
+	var attrLogin = this.config.attributeMap.login;
+	var attrGroupName = this.config.attributeMap.group_name;
+	var attrMemberGroup = this.config.attributeMap.member_group;
+	var attrGroupMember = this.config.attributeMap.group_member;
+	var ldap = this.getLdap();
 
+
+	
+	var search = "({0}={1})".format(
+			attrLogin,
+			login
+		);
+	var result = ldap.search(search).first().attributes[attrMemberGroup]
+
+	return result;
+
+}
+
+function syncGroups(login,user_id) {
+	var $this = this;
+	//clear existing memberships
+	var appname = "{adapter}_{auth_type}".format(this.config)
+	new Myna.Query({
+		ds:"myna_permissions",
+		sql:<ejs>
+			delete
+					
+			from
+				user_group_members
+			where 
+				user_id = {user_id}
+				and user_group_id in (
+					select user_group_id 
+					from user_groups ug
+					where ug.appname = {appname}
+				)
+
+
+				
+		</ejs>,
+		values:{
+			appname:appname,
+			user_id:user_id
+		}
+	});
+	//add new memberships
+	this.getGroups(login).forEach(function (dn) {
+
+		var group = Myna.Permissions.getUserGroupByName(appname,dn)
+		if (group) {
+			group.addUsers(user_id);
+		} 
+	})
+}
 
 function importGroup(name) {
 	var $this = this;
@@ -265,8 +322,11 @@ function importGroup(name) {
 						userObj[myna_attribute] = userLdap.attributes[ldap_attribute][0];
 					}
 				})
-				var user = Myna.Permissions.addUser(userObj)
-				user.setLogin({type:$this.config.auth_type,login:userObj.login})
+				var user = Myna.Permissions.getUserByLogin($this.config.auth_type,userObj.login);
+				if (!user){
+					user = Myna.Permissions.addUser(userObj)
+					user.setLogin({type:$this.config.auth_type,login:userObj.login})
+				}
 				group.addUsers(user.user_id)
 			//} catch(e) {}
 		})
@@ -275,7 +335,7 @@ function importGroup(name) {
 
 
 function userExists(username){
-	var searchString="("+this.config.map.login+"="+username+")";
+	var searchString="("+this.config.attributeMap.login+"="+username+")";
 	return !!getLdap().search(searchString).length;
 }
 
@@ -336,7 +396,7 @@ function searchUsers(search){
 	}
 	
 	var attributes="cn";
-	$this.config.map.forEach(function(v,p){
+	$this.config.attributeMap.forEach(function(v,p){
 		attributes = attributes.listAppend(v);
 	})
 	
@@ -345,10 +405,10 @@ function searchUsers(search){
 		data:$this.getLdap().search(qry,attributes)
 		.filter(function(row){
 			
-			return $this.config.map.login in row.attributes 
-			&& row.attributes[$this.config.map.login].length
-			/* && $this.config.map.email in row.attributes
-			&& row.attributes[$this.config.map.email].length */
+			return $this.config.attributeMap.login in row.attributes 
+			&& row.attributes[$this.config.attributeMap.login].length
+			/* && $this.config.attributeMap.email in row.attributes
+			&& row.attributes[$this.config.attributeMap.email].length */
 		})
 		.map(function(row){
 			var result = {
@@ -359,7 +419,7 @@ function searchUsers(search){
 				email:"",
 				title:""
 			}
-			$this.config.map.forEach(function(ldap_attribute,myna_attribute){
+			$this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
 				 if (ldap_attribute in row.attributes){
 					 result[myna_attribute] = row.attributes[ldap_attribute][0];
 					 if (myna_attribute == "login") result[myna_attribute] = result[myna_attribute].toLowerCase(); 
@@ -386,11 +446,11 @@ function searchGroups(search){
 		  qry = "(&" + $this.config.group_filter + qry + ")"
 	}
 
-	var nameAttr = $this.config.attributeMap.login||"cn"
+	var nameAttr = $this.config.attributeMap.dn||"distinguishedName"
 	
 	
 	
-	Myna.log("debug","ldap search qry " + qry);
+	//Myna.log("debug","ldap search qry " + qry);
 	return new Myna.DataSet({
 		data:$this.getLdap().search(qry,nameAttr)
 		.filter(function(row){
@@ -398,7 +458,7 @@ function searchGroups(search){
 		})
 		.map(function(row){
 			return {
-				name:row.name,
+				name:row.attributes[nameAttr].first(),
 				id:$this.config.auth_type + "/" + row.name
 			}
 			
@@ -412,7 +472,7 @@ function searchGroups(search){
 
 function getUserByLogin(login){
 	var $this = this;
-	var qry ="("+ $this.config.map.login+ "="+login+")";
+	var qry ="("+ $this.config.attributeMap.login+ "="+login+")";
 		
 	if (Object.prototype.hasOwnProperty.call($this.config,"filter")){
 		  qry = "(&" + $this.config.filter + qry + ")"
@@ -426,7 +486,7 @@ function getUserByLogin(login){
 		  middle_name:"",
 		  title:""
 	  }
-	  $this.config.map.forEach(function(ldap_attribute,myna_attribute){
+	  $this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
 			if (ldap_attribute in row.attributes){
 				result[myna_attribute] = row.attributes[ldap_attribute][0];
 			}
@@ -436,3 +496,18 @@ function getUserByLogin(login){
   })[0];
 	
 }
+
+function validate(config) {
+	return new Myna.Validation()
+		.addValidators({
+			server:{
+				required:true
+			},
+			search_columns:{
+				type:"string",
+				required:true
+			}
+		})
+		.validate(config)
+}
+

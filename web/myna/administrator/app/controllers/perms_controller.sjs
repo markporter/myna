@@ -43,6 +43,17 @@ function index(params){
 	this.set("globalProperties",{
 		title:this.$page.title="Permissions: " + params.id,
 		app_name:params.id,
+		authAdapterNames:Myna.Admin.authtype.getAuthAdapterNames()
+			.filter(function (name) {
+				return !"server_admin,myna".listContains(name)
+			}),
+		authAdapters:Myna.Admin.authtype.getAuthAdapterMap()
+			.filter(function (adapter,name) {
+				return !"server_admin,myna".listContains(name)
+			})
+			.map(function (adapter) {
+				return adapter.editConfig
+			}),
 		appUrl:$FP.url,
 		rootUrl:$server.rootUrl
 	})
@@ -58,7 +69,10 @@ function index(params){
 		var content =[
 			"User",
 			"UserLogin",
-			"UserGroup"
+			"UserGroup",
+			"UserGroupMember",
+			"Right",
+			"AuthType"
 		].map(function(modelName){
 			return c.getElement("model_template",{
 				modelName:modelName,
