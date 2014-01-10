@@ -1562,7 +1562,7 @@ var controllers=[]
 					}
 
 				} else {
-					Ext.widget("user_login_add",{auth_type:event.type,user_id:event.user_id})
+					Ext.widget("group_add",{auth_type:event.type,user_id:event.user_id})
 				}
 
 			},

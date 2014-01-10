@@ -175,7 +175,7 @@
 		try{
 			return adapter.searchGroups(params.search.replace(/[^\w\.\-\ '"]/g,""));
 		} catch(e){
-			return [{title:'<textarea cols="50" rows="25">{0}</textarea>'.format(
+			return [{name:'<textarea cols="50" rows="25">{0}</textarea>'.format(
 				"Error in AuthType connector:\n\n" + String(e)
 				)}]
 		}

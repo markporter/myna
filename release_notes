@@ -1,3 +1,15 @@
+Release Name: 1.11.1
+============================
+Notes: Bug Fixes
+
+
+[FIX] ldap group searches now only search "group_name" attribute
+[FIX] Myna Permissions app regression where user search dialog was opened when adding a group
+[FIX] Myna Permissions app now displays errors in ldap group searches
+[FIX] Myna Administrator Running Threads: now shows threads with no URL
+
+
+----------------------------------------------------------
 Release Name: 1.11.0
 ============================
 Notes: Added new Permissions manager to Myna Administrator, and enhanced Active Directory LDAP support

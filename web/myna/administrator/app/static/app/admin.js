@@ -1389,12 +1389,12 @@ Ext.override(Ext.view.AbstractView, {
 				columns:[
 					{dataIndex:"thread_id", header:"Thread ID", renderer:U.link, eventName:"explore"},
 					{dataIndex:"url", header:"URL",flex:1,renderer:function(val,meta){
-						meta.tdAttr =" data-qtip='{0}'".format(val.replace(/'/g,""));
+						meta.tdAttr =" data-qtip='{0}'".format((val||"").replace(/'/g,""));
 						return val;
 					}},
 					
 					{dataIndex:"current_task", header:"Current Task",flex:1,renderer:function(val,meta){
-						meta.tdAttr =" data-qtip='{0}'".format(val.replace(/'/g,""));
+						meta.tdAttr =" data-qtip='{0}'".format((val||"").replace(/'/g,""));
 						return val;
 					}},
 					/* {dataIndex:"is_white_listed", header:"is_white_listed"}, */

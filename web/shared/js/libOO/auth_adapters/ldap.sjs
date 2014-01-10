@@ -434,31 +434,28 @@ function searchUsers(search){
 
 function searchGroups(search){
 	var $this = this;
-	var qry ="(|";
+
+	var dnAttr = $this.config.attributeMap.dn||"distinguishedName"
+	var nameAttr = $this.config.attributeMap.group_name||"cn"
+	var qry ="({0}=*{1}*)".format(nameAttr,search); 
 	
-	$this.config.search_columns.split(/,/).forEach(function(col){
-		 qry +="("+col+"=" + "*"+search +"*)"
-	})
-	
-	qry +=")";
 	
 	if (Object.prototype.hasOwnProperty.call($this.config,"group_filter")){
 		  qry = "(&" + $this.config.group_filter + qry + ")"
 	}
 
-	var nameAttr = $this.config.attributeMap.dn||"distinguishedName"
 	
 	
 	
-	//Myna.log("debug","ldap search qry " + qry);
+	//Myna.printConsole("ldap search qry ",qry);
 	return new Myna.DataSet({
-		data:$this.getLdap().search(qry,nameAttr)
+		data:$this.getLdap().search(qry,dnAttr)
 		.filter(function(row){
-			return row.attributes[nameAttr].length
+			return row.attributes[dnAttr].length
 		})
 		.map(function(row){
 			return {
-				name:row.attributes[nameAttr].first(),
+				name:row.attributes[dnAttr].first(),
 				id:$this.config.auth_type + "/" + row.name
 			}
 			
