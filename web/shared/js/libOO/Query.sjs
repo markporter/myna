@@ -739,10 +739,11 @@ getStatement:function(sql){
 					qry.parseResultSet(qry.resultSet,ignoreOffset);
 					if (ignoreOffset){
 						try{
+							var totalSql = db.functions.totalRowsSql(origSql);
 							this.totalRows = new Myna.Query({
 								ds:dsName,
 								sql:db.functions.totalRowsSql(origSql),
-								parameters:sqlParameters
+								parameters:/\?/.test(totalSql)?sqlParameters:null
 							}).data[0].count;
 						} catch(e){
 							Myna.printConsole(e);

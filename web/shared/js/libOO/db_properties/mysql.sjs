@@ -147,13 +147,12 @@ var functions={
 		st.setObject(index+1,value,java.sql.Types.VARBINARY);
 	},
 	totalRowsSql:function(sql){
-		return <ejs>
-			select count(*) count from (<%=sql%>) as myna_count
-		</ejs>
+		return "select FOUND_ROWS() as count"
+		
 	},
 	offsetSql:function(sql,limit,offset){
 		return <ejs>
-			<%=sql%>
+			<%=sql.replace(/(select)(\s)/i,"$1 SQL_CALC_FOUND_ROWS$2")%>
 			
 			<@if limit>
 				LIMIT <%=limit%> <@if offset>OFFSET <%=offset%></@if>
