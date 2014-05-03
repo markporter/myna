@@ -685,6 +685,66 @@ if (!Myna) var Myna={}
 		result.push(d(obj,maxDepth,"  "));		
 		return result.join("\n");
 	}
+/* Function: exec
+	Execute a program and return the result
+
+	Parameters:
+		cmd		-	String.
+					Command to execute, along with any paramters
+		options	-	*Optional, default {}*
+					extra options. See *Options* below
+
+	Options:
+		dir		-	Working directory. Defaults to $server.currentDir. Copied to options.env.PWD
+		env		-	JS Object of environment variables to pass to the process
+		meta	-	JS Object to store the result details
+
+	See Also:
+	* <String.prototype.pipe>
+	
+	Example:
+	(code)
+		//simple call
+		var files = Myna.exec("ls -l");
+		Myna.println(files);
+
+		//call with working dir and result object 
+		var result ={};
+		var files = Myna.exec("ls -l",{
+			dir:"/WEB-INF",
+			meta:result
+		});
+		Myna.println(files);
+		Myna.println(result.exitCode);
+		Myna.println(result.errors;
+
+		//Using String.pipe();
+
+		var sortedFiles = Myna.exec("ls -a",{dir:"/"}).pipe("egrep -v ~").pipe("sort -h");
+	(end)
+
+
+	*/	
+	Myna.exec = function exec(cmd,options) {
+		options = options||{};
+		options.input=options.input||null;
+		options.env=options.env||{};
+		if (options.dir){
+			options.env.PWD = new Myna.File(options.dir).javaFile.toString();
+		}
+
+		var retval =  $server_gateway.exec(cmd,options.input,options.env)
+		retval =Myna.JavaUtils.mapToObject(retval);
+
+		var output = retval.output
+		
+		retval.forEach(function (v,k) {
+			if (k != "output"){
+				options[k] = v;
+			}
+		})
+		return output
+	}
 /* Function: executeShell 
 	Executes a shell command/script
 	 

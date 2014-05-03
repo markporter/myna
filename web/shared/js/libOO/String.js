@@ -2003,6 +2003,22 @@ if ("$server_gateway" in this){
 		cryptTool.setPassword(password);
 		return cryptTool.encrypt(string);
 	};
+/* Function: pipe
+	alias for Myna.exec, using this contents of this string as the options.input
+
+	Parameters:
+		See <Myna.exec>	
+
+	Example:
+	(code)
+		var sortedFiles = Myna.exec("ls -a",{dir:"/"}).pipe("egrep -v ~").pipe("sort -h");
+	(end)
+	*/
+	String.prototype.pipe=function (cmd,options) {
+		options = options||{}
+		options.input=this;
+		return Myna.exec(cmd,options)
+	};
 
 /* Function: toJava 
 	returns a new java.lang.String of this string

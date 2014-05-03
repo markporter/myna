@@ -429,6 +429,126 @@ public class MynaThread implements java.lang.Runnable{
 		
 		//ContextFactory.initGlobal(new CustomContextFactory());
 	}
+
+	/**
+     *  Exec a string in a separate process (mapped to Myna.exec). 
+     *  Plagiarized from NashornScriptingFuntions.java
+     *
+     * @param self   self reference
+     * @param string string to execute
+     * @param input  input
+     *
+     * @return output string from the request
+     * @throws IOException           if any stream access fails
+     * @throws InterruptedException  if execution is interrupted
+     */
+    public static Map<String,Object> exec(String cmd, String input, Map<String,String> envProperties) throws IOException, InterruptedException {
+        Map result = new HashMap<String,Object>();
+
+        // Break exec string into tokens.
+        final StringTokenizer tokenizer = new StringTokenizer(cmd);
+        final String[] cmdArray = new String[tokenizer.countTokens()];
+        for (int i = 0; tokenizer.hasMoreTokens(); i++) {
+            cmdArray[i] = tokenizer.nextToken();
+        }
+
+        // Set up initial process.
+        final ProcessBuilder processBuilder = new ProcessBuilder(cmdArray);
+
+        
+        if (envProperties != null) {
+            // If a working directory is present, use it.
+            final String pwd = envProperties.get("PWD");
+            if (pwd != null) {
+                processBuilder.directory(new File(pwd));
+            }
+
+            // Set up ENV variables.
+            final Map<String, String> environment = processBuilder.environment();
+            environment.clear();
+            for (Map.Entry<String, String> entry : envProperties.entrySet()) {
+                environment.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        // Start the process.
+        final Process process = processBuilder.start();
+        final IOException exception[] = new IOException[2];
+
+        // Collect output.
+        final StringBuilder outBuffer = new StringBuilder();
+        Thread outThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                char buffer[] = new char[1024];
+                try {
+                	final InputStreamReader inputStream = new InputStreamReader(process.getInputStream());
+                    for (int length; (length = inputStream.read(buffer, 0, buffer.length)) != -1; ) {
+                        outBuffer.append(buffer, 0, length);
+                    }
+                } catch (IOException ex) {
+                    exception[0] = ex;
+                }
+            }
+        }, "$EXEC output");
+
+        // Collect errors.
+        final StringBuilder errBuffer = new StringBuilder();
+        Thread errThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                char buffer[] = new char[1024];
+                try {
+                	final InputStreamReader inputStream = new InputStreamReader(process.getErrorStream());
+                    for (int length; (length = inputStream.read(buffer, 0, buffer.length)) != -1; ) {
+                        errBuffer.append(buffer, 0, length);
+                    }
+                } catch (IOException ex) {
+                    exception[1] = ex;
+                }
+            }
+        }, "$EXEC error");
+
+        // Start gathering output.
+        outThread.start();
+        errThread.start();
+
+        // If input is present, pass on to process.
+        try {
+        	OutputStreamWriter outputStream = new OutputStreamWriter(process.getOutputStream());
+            if (input != null) {
+                String in = input;
+                outputStream.write(in, 0, in.length());
+                outputStream.close();
+            }
+        } catch (IOException ex) {
+            // Process was not expecting input.  May be normal state of affairs.
+        }
+
+        // Wait for the process to complete.
+        final int exit = process.waitFor();
+        outThread.join();
+        errThread.join();
+
+        final String out = outBuffer.toString();
+        final String err = errBuffer.toString();
+
+        // Set globals for secondary results.
+
+        result.put("output", out);
+        result.put("error", err);
+        result.put("exitCode", exit);
+
+        // Propagate exception if present.
+        for (int i = 0; i < exception.length; i++) {
+            if (exception[i] != null) {
+                throw exception[i];
+            }
+        }
+
+        // Return the result from stdout.
+        return result;
+    }
 	
 	
 	/**
@@ -1788,4 +1908,5 @@ public class MynaThread implements java.lang.Runnable{
 	public NativeJavaProxy proxyWrapJavaObject(Object javaObject, Class<?> staticType, org.mozilla.javascript.Function f){
 		return new NativeJavaProxy(this.threadScope, javaObject, staticType,f);
 	}
+
 }
