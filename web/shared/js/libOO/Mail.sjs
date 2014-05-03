@@ -50,6 +50,8 @@ if (!Myna) var Myna={}
 		attachments			-	*Optional default []* Optional array of 
 								<Myna.File> objects or <MynaPath> strings that 
 								represent files to attach to this email 
+		headers				-	*Optional, default {}*
+								Additional headers to set, where the key is the header name 
 */
 Myna.Mail = function (options){
 	options.applyTo(this);
@@ -61,6 +63,7 @@ Myna.Mail = function (options){
 		subject:"",
 		body:"",
 		isHtml:false,
+		headers:{},
 		attachments:[]
 	}
 	defaults.applyTo(this); 
@@ -70,6 +73,7 @@ Myna.Mail = function (options){
 	send this email
 */
 Myna.Mail.prototype.send=function(){
+	var $this = this;
 	this.checkRequired(["to","from"])
 	var mail = Packages.javax.mail;
 	var internet = mail.internet;
@@ -87,6 +91,11 @@ Myna.Mail.prototype.send=function(){
 		mail.Message.RecipientType.TO,
 		internet.InternetAddress.parse(this.to,false)
 	);
+	//set headers
+	this.headers.getKeys().forEach(function (key) {
+		msg.setHeader(key,$this.headers[key])
+	})
+
 	if (this.cc.length){
 		msg.setRecipients(
 			mail.Message.RecipientType.CC,
