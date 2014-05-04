@@ -1,12 +1,30 @@
-Release Name: 1.11.1
+Release Name: 1.11.2
+============================
+Notes: Minor feature update
+
+* **[ADD]**         Added Myna.exec for simple system calls
+* **[ADD]**         Added String.pipe() to call Myna.exec gain using a previous result as an input
+* **[ADD]**         Mail headers support for Myna.Mail
+* **[CHANGE]**      Improved support for paged queries in MySql
+
+
+----------------------------------------------------------
+Release Name: undefined
+============================
+Notes: 
+
+* **[CHANGE]**      Improved support for paged queries in MySql
+* **[OTHER]**       "
+
+----------------------------------------------------------Release Name: 1.11.1
 ============================
 Notes: Bug Fixes
 
 
-[FIX] ldap group searches now only search "group_name" attribute
-[FIX] Myna Permissions app regression where user search dialog was opened when adding a group
-[FIX] Myna Permissions app now displays errors in ldap group searches
-[FIX] Myna Administrator Running Threads: now shows threads with no URL
+* **[FIX]** ldap group searches now only search "group_name" attribute
+* **[FIX]** Myna Permissions app regression where user search dialog was opened when adding a group
+* **[FIX]** Myna Permissions app now displays errors in ldap group searches
+* **[FIX]** Myna Administrator Running Threads: now shows threads with no URL
 
 
 ----------------------------------------------------------
