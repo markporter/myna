@@ -695,7 +695,7 @@ if (!Myna) var Myna={}
 					extra options. See *Options* below
 
 	Options:
-		dir		-	Working directory. Defaults to $server.currentDir. Copied to options.env.PWD
+		dir		-	MynaPath. Working directory. Defaults to $server.currentDir. Copied to options.env.PWD
 		env		-	JS Object of environment variables to pass to the process
 		meta	-	JS Object to store the result details
 
@@ -731,6 +731,8 @@ if (!Myna) var Myna={}
 		options.env=options.env||{};
 		if (options.dir){
 			options.env.PWD = new Myna.File(options.dir).javaFile.toString();
+		} else {
+			options.env.PWD = new Myna.File($server.currentDir).javaFile.toString();
 		}
 
 		var retval =  $server_gateway.exec(cmd,options.input,options.env)
