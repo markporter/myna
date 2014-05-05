@@ -703,10 +703,14 @@ getStatement:function(sql){
 					sql=db.functions.offsetSql(sql,this.maxRows,this.startRow-1);
 					ignoreOffset = true;
 				}
+				sql = sql.replace(/\u0000/g,"");
 				var st = this.getStatement(sql);
 				con = db.con;
 				if (sqlParameters instanceof Myna.QueryParams){
 					sqlParameters.params.forEach(function(element,index){
+						if (typeof element.value == "string"){
+							element.value = element.value.replace(/\u0000/g,"")
+						}
 						try {
 							if (element.type == "GUESS" ){
 								st.setObject(index+1,element.value);
