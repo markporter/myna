@@ -1050,7 +1050,10 @@ Date.formatInterval = function(interval,options){
 Date.monthsBetween = function(d1,d2){
 	var coefficient=1
 	if (d1 > d2) {
-		[d1,d2] =[d2,d1];
+        var tmp = d2;
+        d2=d1;
+        d1=tmp;
+		//[d1,d2] =[d2,d1];
 		coefficient=-1
 	}
 	var count =0
