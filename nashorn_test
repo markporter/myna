@@ -1,0 +1,3 @@
+#!/home/mark/myna_exp/build/WEB-INF/myna/commandline/myna
+
+$server_gateway.executeNashornFile(null,"file:///home/mark/myna_exp/nashorn_test.js");
