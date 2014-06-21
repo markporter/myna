@@ -196,10 +196,10 @@ if (!Myna) var Myna={}
 				if (!cacheValue //no value
 					||	c.getElementAttributes(key).getCreateTime() == time //value hasn't changed
 				){
-					cacheValue={
+					cacheValue=new java.util.Hashtable({
 						value:f.apply(cacheObj,args),
 						content:$this.includeContent?$res.clear():""
-					};
+					});
 					$res.print(startContent);
 					var att = c.getDefaultElementAttributes();
 					//set max idle time to  
@@ -297,10 +297,10 @@ if (!Myna) var Myna={}
 		var c = org.apache.jcs.JCS.getInstance("value");
 
 		Myna.lock("MYNA:cache:update:"+key,10, function(){
-			var cacheValue={
+			var cacheValue=new java.util.Hashtable({
 				value:value,
 				content:content||""
-			};
+			});
 
 			var att = c.getDefaultElementAttributes();
 			//set max idle time to  

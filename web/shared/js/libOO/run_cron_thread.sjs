@@ -3,7 +3,7 @@ function run() {
 		$server_gateway.environment.put("threadName","Scheduled Task Thread");
 		//Myna.printConsole("----------- Cron Thread Wakeup ---------","");
 		var now = new Date().getTime();
-		var mt = $server_gateway;
+		var mt = $server_global;
 		
 		var cron = mt.waitingCronTasks.peek();
 		if (!cron){

@@ -54,19 +54,41 @@ Myna.Database = function (ds){
 	
 	
 	*/
-	Myna.Database.dbProperties=(function(){
+	/*Myna.Database.dbProperties=(function(){
 		var propFiles = new Myna.File("/shared/js/libOO/db_properties").listFiles("sjs");
 		var db_props={}
 		
 		propFiles.forEach(function(propFile){
-			if (!/^[\w]+.sjs$/.test(propFile.getFileName())) return;
+
+			if (!/^[\w]+.sjs$/.test(propFile.fileName)) return;
 			var vendor = propFile.getFileName().split(/\./)[0];
 			var obj={};
 			Myna.include(propFile,db_props[vendor]={});
 			
 		});
 		return db_props
-	})()
+	})()*/
+
+
+	Object.defineProperty(Myna.Database,"dbProperties",{
+		get:function () {
+			if (!this._dbProperties){
+				var propFiles = new Myna.File("/shared/js/libOO/db_properties").listFiles("sjs");
+				var db_props={}
+				
+				propFiles.forEach(function(propFile){
+
+					if (!/^[\w]+.sjs$/.test(propFile.fileName)) return;
+					var vendor = propFile.getFileName().split(/\./)[0];
+					var obj={};
+					$server_gateway.include(propFile,db_props[vendor]={});
+					
+				});	
+				this._dbProperties = db_props
+			}
+			return this._dbProperties
+		}
+	});
 
 /* Property: con
 		jdbc connection object. Created in <init>, closed on requestEnd
@@ -84,7 +106,7 @@ Myna.Database = function (ds){
 				} else {
 					//con = java.sql.DriverManager.getConnection("jdbc:apache:commons:dbcp:" + this.ds);
 					if (typeof this.ds === "string"){
-						con = $server_gateway.javaDataSources.get(this.ds).getConnection()
+						con = $server_global.javaDataSources.get(this.ds).getConnection()
 					} else /* if (this.ds instanceof Myna.DataSet) */{
 						
 						con = this.ds.getConnection()
@@ -93,8 +115,10 @@ Myna.Database = function (ds){
 				conCache.put(this.ds,con); 
 				$application.addOpenObject(con);
 			} catch(e){
-				Myna.log("ERROR","Unable to load datasource '" + this.ds +"' : " + __exception__.message,Myna.formatError(__exception__));
-				throw new Error("Unable to load datasource '" + this.ds +"' : " + __exception__.message)
+				Myna.printConsole(e,e.stack);
+
+				Myna.log("ERROR","Unable to load datasource '" + this.ds +"' : " + e.message,Myna.formatError(e));
+				throw new Error("Unable to load datasource '" + this.ds +"' : " + e.message)
 			}
 		} 
 		return con;
@@ -113,11 +137,19 @@ Myna.Database = function (ds){
 			true if table and column names are case sensitive
 		*/
 		this.isCaseSensitive = false;
-		try{
-			this.isCaseSensitive = !!Math.parseInt(Myna.JavaUtils.mapToObject(
-				Myna.JavaUtils.mapToObject($server_gateway.dataSources)[this.ds]
-			).case_sensitive);
-		} catch(e){}
+		//try{
+			
+			//Myna.printConsole(Myna.dumpText($server_global.dataSources[this.ds].case_sensitive));
+			//Myna.printConsole(Myna.dumpText($server_global.dataSources[this.ds]));
+			this.isCaseSensitive = !!parseInt(
+				$server_global
+					.dataSources[this.ds]
+					.case_sensitive||"0"
+			);
+			/*this.isCaseSensitive = !!Math.parseInt(Myna.JavaUtils.mapToObject(
+				Myna.JavaUtils.mapToObject($server_global.dataSources)[this.ds]
+			).case_sensitive);*/
+		//} catch(e){}
 		
 		/* Property: md
 			database matadata object. Created in <init>, closed on requestEnd. 
@@ -127,7 +159,8 @@ Myna.Database = function (ds){
 			this.md = this.con.getMetaData();
 		} catch(e){
 			
-			Myna.log("error","error aquiring metaData",Myna.formatError(__exception__));	
+			Myna.log("error","error aquiring metaData",Myna.formatError(e));	
+			Myna.printConsole(Myna.dumpText(e));
 		}
 		this.catalog = this.con.getCatalog();
 		

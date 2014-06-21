@@ -522,7 +522,7 @@ Myna.Query.prototype={
 				return e.name.toLowerCase();
 			}
 		});
-		//$application.addOpenObject(jdbcResultSet);
+		//$server_global.getCurrentThread().threadScope.$application.addOpenObject(jdbcResultSet);
 		var ResultSet = java.sql.ResultSet;
 		if (ignoreOffset){
 			//doNothing
@@ -594,14 +594,17 @@ getStatement:function(sql){
 		var db =this.db = new Myna.Database(dsName);
 		var con = db.con;
 		var ResultSet = java.sql.ResultSet;
-		if (!$req["__CACHE__STATEMENT"]) $req["__CACHE__STATEMENT"] = new java.util.Hashtable();
+		if (!$server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"]) $server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"] = new java.util.Hashtable();
 		if (
-			$req["__CACHE__STATEMENT"].containsKey(qry.dataSource+sql) &&
-			!$req["__CACHE__STATEMENT"].get(qry.dataSource+sql)._closed &&
-			!$req["__CACHE__STATEMENT"].get(qry.dataSource+sql).getConnection().isClosed()
+			// $server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"].containsKey(qry.dataSource+sql) &&
+			// !$server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"].get(qry.dataSource+sql)._closed &&
+			// !$server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"].get(qry.dataSource+sql).getConnection().isClosed()
+			$server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"][qry.dataSource+sql] &&
+			!$server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"][qry.dataSource+sql]._closed &&
+			!$server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"][qry.dataSource+sql].getConnection().isClosed()
 		)
 		{
-			st = $req["__CACHE__STATEMENT"].get(qry.dataSource+sql);
+			st = $server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"].get(qry.dataSource+sql);
 		} else {
 			/* if(false && /^\s*insert/.test(sql.toLowerCase())){
 				try{
@@ -614,12 +617,13 @@ getStatement:function(sql){
 					st =  con.prepareStatement(sql,ResultSet.TYPE_SCROLL_INSENSITIVE,ResultSet.CONCUR_READ_ONLY);
 				} catch(e){
 					st =  con.prepareStatement(sql);
-					Myna.log("error","Error creating scrollable statement",Myna.formatError(__exception__));
+					Myna.log("error","Error creating scrollable statement",Myna.formatError(e));
 				}
 			/* } */
-			$req["__CACHE__STATEMENT"].put(qry.dataSource +sql,st);
-			$application.addOpenObject(st);
+			$server_global.getCurrentThread().threadScope.$req["__CACHE__STATEMENT"].put(qry.dataSource +sql,st);
+			$server_global.getCurrentThread().threadScope.$application.addOpenObject(st);
 		}
+		
 		return st;
 	},
 /* Function: execute
@@ -648,7 +652,7 @@ getStatement:function(sql){
 		var dsName = this.dataSource;
 		var sql = this.sql;
 		var profilerKey="Executing Query '" + sql.replace(/\s+/g," ") +"'";
-		$profiler.begin(profilerKey);
+		$server_global.getCurrentThread().threadScope.$profiler.begin(profilerKey);
 		//if (!this.dataSource) throw new Error("A datasource is required to execute a query");
 		if (!this.sql) throw new Error("An SQL string is required to execute a query");
 		var qry = this;
@@ -683,8 +687,8 @@ getStatement:function(sql){
 			cacheQry.cache=false;
 			cacheQry.setDefaultProperties(qry);
 			var result = new Myna.Cache(cache).call(cacheQry);
-			$profiler.end(profilerKey);
-			$profiler.mark("Done "+profilerKey);
+			$server_global.getCurrentThread().threadScope.$profiler.end(profilerKey);
+			$server_global.getCurrentThread().threadScope.$profiler.mark("Done "+profilerKey);
 			if (this.log && this.ds != "myna_log"){
 				Myna.log("query","Query: " + sql.left(30),Myna.dump(result));
 			}
@@ -767,13 +771,13 @@ getStatement:function(sql){
 				}
 				qry.parseTime=java.lang.System.currentTimeMillis()-start;
 			} catch (e){
-				Myna.log("error","Query Error",Myna.formatError(__exception__)+Myna.dump(qry,"Query"));
+				Myna.log("error","Query Error",Myna.formatError(e)+Myna.dump(qry,"Query"));
 				e.query = qry;
 				qry.last_error = e;
 				throw e;
 			} finally {
-				$profiler.end(profilerKey);
-				$profiler.mark("Done "+profilerKey);
+				$server_global.getCurrentThread().threadScope.$profiler.end(profilerKey);
+				$server_global.getCurrentThread().threadScope.$profiler.mark("Done "+profilerKey);
 				if (this.log &&this.ds != "myna_log"){
 					//Myna.printConsole("logging " + this.ql)
 					Myna.log("query","Query: " + sql.left(30),Myna.dump(qry));
@@ -804,7 +808,7 @@ getStatement:function(sql){
 	Example:
 		(code)
 		var insertQry =new Myna.Query({
-			ds:$FP.defaultDs,
+			ds:$server_global.getCurrentThread().threadScope.$FP.defaultDs,
 			sql:<ejs>
 				insert into positions(
 					id,
@@ -888,7 +892,7 @@ getStatement:function(sql){
 				qry.executeBatch();
 			}
 		} catch (e){
-			Myna.log("error","Query Error",Myna.formatError(__exception__)+Myna.dump(qry,"Query"));
+			Myna.log("error","Query Error",Myna.formatError(e)+Myna.dump(qry,"Query"));
 			e.query = qry;
 			qry.last_error = e;
 			throw e;
@@ -906,7 +910,7 @@ getStatement:function(sql){
 			this.curBatchCount,
 			sql.replace(/\s+/g," ")
 		);
-		$profiler.begin(profilerKey);
+		$server_global.getCurrentThread().threadScope.$profiler.begin(profilerKey);
 		if (!this.sql) throw new Error("An SQL string is required to execute a query");
 		var qry = this;
 		if (qry.values) sql = this.parseSql(qry.values);
@@ -936,8 +940,8 @@ getStatement:function(sql){
 			cacheQry.cache=false;
 			cacheQry.setDefaultProperties(qry);
 			var result = new Myna.Cache(cache).call(cacheQry);
-			$profiler.end(profilerKey);
-			$profiler.mark("Done "+profilerKey);
+			$server_global.getCurrentThread().threadScope.$profiler.end(profilerKey);
+			$server_global.getCurrentThread().threadScope.$profiler.mark("Done "+profilerKey);
 			if (this.log && this.ds != "myna_log"){
 				Myna.log("query","Query: " + sql.left(30),Myna.dump(result));
 			}
@@ -967,13 +971,13 @@ getStatement:function(sql){
 				qry.parseTime=java.lang.System.currentTimeMillis()-start;
 				qry.curBatchCount=0;
 			} catch (e){
-				Myna.log("error","Query Error",Myna.formatError(__exception__)+Myna.dump(qry,"Query"));
+				Myna.log("error","Query Error",Myna.formatError(e)+Myna.dump(qry,"Query"));
 				e.query = qry;
 				qry.last_error = e;
 				throw e;
 			} finally {
-				$profiler.end(profilerKey);
-				$profiler.mark("Done "+profilerKey);
+				$server_global.getCurrentThread().threadScope.$profiler.end(profilerKey);
+				$server_global.getCurrentThread().threadScope.$profiler.mark("Done "+profilerKey);
 				if (this.log &&this.ds != "myna_log"){
 					//Myna.printConsole("logging " + this.ql)
 					Myna.log("query","Query: " + sql.left(30),Myna.dump(qry));

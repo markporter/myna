@@ -129,7 +129,8 @@
 			<include name="*.jar"/>
 		</fileset>
 	 <!--	<pathelement location="ojdbc14.jar"/> -->	
-		<pathelement location="winstone/winstone.jar"/>
+		<!-- <pathelement location="winstone/winstone.jar"/> -->
+		<pathelement location="/usr/lib/jvm/java-8-oracle/jre/lib/ext/nashorn.jar"/>	
 	</path>
 
 
@@ -181,10 +182,12 @@
 	
 	<!-- Compile Java classes as necessary -->
 		<mkdir		dir="${build.home}/WEB-INF/classes"/>
-		
-		<javac srcdir="${src.home}"
+		<!-- 
 			target="1.6"
 			source="1.6"
+		 -->
+		<javac srcdir="${src.home}"
+			
 			bootclasspath="${java5.home}"	
 			destdir="${build.home}/WEB-INF/classes"
 			debug="${compile.debug}"

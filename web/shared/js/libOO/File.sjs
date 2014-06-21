@@ -31,7 +31,7 @@ if (!Myna) var Myna={}
 		path=Array.parse(arguments).map(function(path,index){
 			if (path instanceof Myna.File){
 				path.javaFile.toURI().toString();	
-			}else if (path instanceof java.io.file){
+			}else if (path instanceof java.io.File){
 				path = path.toURI().toString();
 			} else path = String(path);
 			if (index == 0 ) {
@@ -477,7 +477,7 @@ if (!Myna) var Myna={}
         var FileUtils = Packages.org.apache.commons.io.FileUtils;
         var iterator = FileUtils.lineIterator(this.javaFile);
         $application.addOpenObject(iterator);
-        return Iterator(iterator);
+        return iterator;
     };
 /* Function: getSize
 		returns the size in bytes of this file
@@ -732,7 +732,8 @@ if (!Myna) var Myna={}
 			return [] 	
 		}	
 		var line;	
-		for (line in li) {
+		while (line = li.next()){
+		//for (line in li) {
 			++pos;
 			result.push(line);
 			if (size && pos > size+1) result.shift()

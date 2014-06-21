@@ -193,25 +193,26 @@
 		var end =$profiler.begin("$FP,init")
 		var core;
 		core= this;
-		$application.config.applyTo(this.config,true)
+		$FP = core;
+		$application.config.applyTo($FP.config,true)
 		if (
-			"purpose" in this.config
-			&&	$server.purpose.toLowerCase() in this.config.purpose 
+			"purpose" in $FP.config
+			&&	$server.purpose.toLowerCase() in $FP.config.purpose 
 		){
-			this.config.purpose[$server.purpose.toLowerCase()].applyTo(this.config,true)
+			$FP.config.purpose[$server.purpose.toLowerCase()].applyTo($FP.config,true)
 		}
 		
-		if (!this.config.frameworkFolder) this.config.frameworkFolder = this.dir
+		if (!$FP.config.frameworkFolder) $FP.config.frameworkFolder = this.dir
 				
 		this.appname = $application.appname
 		
 		this.modelManagers ={}
-		if (this.config.ds) {
-			if (typeof this.config.ds == "string") {
-				this.config.ds={"default":this.config.ds}	
+		if ($FP.config.ds) {
+			if (typeof $FP.config.ds == "string") {
+				$FP.config.ds={"default":$FP.config.ds}	
 			}
 			
-			this.config.ds.forEach(function(ds,alias){
+			$FP.config.ds.forEach(function(ds,alias){
 				var end=$profiler.begin("loading db " + alias)
 				Object.defineProperty( core.modelManagers, alias, {
 					get: function(){ 
@@ -233,9 +234,9 @@
 				end()
 			})
 			
-			this.defaultDs = this.config.ds["default"] 
+			this.defaultDs = $FP.config.ds["default"] 
 		}
-		this.frameworkFolder = this.config.frameworkFolder; 
+		this.frameworkFolder = $FP.config.frameworkFolder; 
 		Myna.include(this.frameworkFolder + "/Controller.sjs",this)
 		Myna.include(this.frameworkFolder +"/Model.sjs",this)
 		this.helpers={};
@@ -254,7 +255,7 @@
 		
 		this.loadedAt = new Date()
 		
-		$FP = core;
+		
 		Myna.include($FP.frameworkFolder +"/Flash.sjs")
 		
 		
@@ -556,9 +557,9 @@
 			restParams = [$server.requestScriptName]
 		} else {
 			
-			if (this.config.homeRoute){
+			if ($FP.config.homeRoute){
 				meta.usingHomeRoute=true
-				var ha = this.config.homeRoute;
+				var ha = $FP.config.homeRoute;
 				restParams=[$FP.c2f(ha.controller)];
 				if ("action" in ha) restParams.push($FP.c2f(ha.action))
 				if ("id" in ha) restParams.push(ha.id)
@@ -570,7 +571,7 @@
 		}
 		meta.urlParts = restParams
 		
-		var routes=this.config.routes
+		var routes=$FP.config.routes
 		if (restParams.length){
 			var controllerNames = meta.controllerNames=getControllerNames()
 			var foundOne = routes.some(function(route,index){

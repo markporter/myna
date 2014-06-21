@@ -1,12 +1,13 @@
 /* installs or upgrades standard tables */
 
+
 var ds;
 var db;
 var table;
 var dm;
 
 if ($server.properties.log_engine == "myna_log"){
-/* myna_log */
+	/* myna_log */
 	ds = "myna_log"
 	if (!Myna.Admin.ds.exists(ds)){
 		Myna.Admin.ds.createLocalDatabase(
@@ -90,7 +91,7 @@ if ($server.properties.log_engine == "myna_log"){
 		)
 		
 	}
-	
+	java.lang.System.err.println("$req = currentThread: " + ($server_global.getCurrentThread().$req == $req));
 	db = new Myna.Database(ds);
 	/* cluster table */
 		table = db.getTable("cluster_members");

@@ -73,3 +73,17 @@
 		options.ds = this.getDs();
 		return new Myna.Query(options);	
 	}
+
+//(function(){
+	//"use strict";
+/*if ("getOwnPropertyDescriptor" in Object){
+	Object.keys(Myna.DataSet.prototype).forEach(function (k) {
+		//Myna.println("hiding key " + k);
+		//java.lang.System.out.println("hiding " + k)
+		var d =Object.getOwnPropertyDescriptor( Myna.DataSet.prototype, k)
+		d.enumerable = false;
+		Object.defineProperty(Myna.DataSet.prototype, k, d)	
+	})
+}*/
+//})();
+ 

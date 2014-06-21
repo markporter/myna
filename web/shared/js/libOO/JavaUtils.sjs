@@ -19,7 +19,7 @@ if (!("JavaUtils" in Myna)) Myna.JavaUtils={}
 	
 	Myna.JavaUtils.base64ToByteArray = function(string){
 		
-		var Base64 =new org.apache.commons.codec.binary.Base64();
+		var Base64 =new Packages.org.apache.commons.codec.binary.Base64();
 		if (/[\.-_]/.test(string)){
 			string = string
 				.replace(/-/g,"+")
@@ -148,7 +148,7 @@ if (!("JavaUtils" in Myna)) Myna.JavaUtils={}
 	*/
 	Myna.JavaUtils.byteArrayToBase64 = function(bytes, urlSafe){
 	
-		var Base64 =new org.apache.commons.codec.binary.Base64();
+		var Base64 =Packages.org.apache.commons.codec.binary.Base64;
 		var b64 = String(new java.lang.String(Base64.encodeBase64(bytes),"ASCII"));
 		
 		if (urlSafe){
@@ -197,7 +197,8 @@ if (!("JavaUtils" in Myna)) Myna.JavaUtils={}
 	(end)
 	*/
 	Myna.JavaUtils.createSyncFunction=function(functionObject){	
-		return new Packages.org.mozilla.javascript.Synchronizer(functionObject)
+		throw new Error("Myna.JavaUtils.createSyncFunction is deprecated")
+		//return new Packages.org.mozilla.javascript.Synchronizer(functionObject)
 	}
 /* Function: createByteArray 
 	returns a java Byte array of the supplied size 

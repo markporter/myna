@@ -6,10 +6,15 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.sql.DataSource;
 import java.lang.reflect.*;
-import org.mozilla.javascript.*;
-import org.mozilla.javascript.serialize.*;
-import org.mozilla.javascript.commonjs.module.*;
-import org.mozilla.javascript.commonjs.module.provider.*;
+
+//import org.mozilla.javascript.*;
+//import org.mozilla.javascript.serialize.*;
+//import org.mozilla.javascript.commonjs.module.*;
+//import org.mozilla.javascript.commonjs.module.provider.*;
+
+import jdk.nashorn.internal.runtime.*;
+import jdk.nashorn.internal.runtime.options.*;
+import jdk.nashorn.api.scripting.*;
 import java.util.*;
 import java.util.regex.*;
 import java.sql.*;
@@ -44,7 +49,7 @@ public class MynaThread implements java.lang.Runnable{
 	static public ConcurrentHashMap 	serverVarMap 			= new ConcurrentHashMap();//used by $server.get/set
 	static public ConcurrentHashMap 	applications 			= new ConcurrentHashMap();//contains Application descriptors, keyed by path
 	static private boolean 			isInitialized 				= false;
-	static volatile public			Scriptable sharedScope_		= null;
+	
 	static public int 				threadHistorySize			=0; // number of completed threads to store in recentThreads. Set with property "thread_history_size"
 	static public java.util.Date 	serverStarted 				= new java.util.Date(); //date object representing the time this server was started
 	
@@ -52,14 +57,45 @@ public class MynaThread implements java.lang.Runnable{
 
 	static public ExecutorService 		backgroundThreadPool	=Executors.newFixedThreadPool(2);
 	static public PriorityBlockingQueue<CronTask> 		waitingCronTasks	= new PriorityBlockingQueue<CronTask>();
+
+	static public String 				rootDir					= null; // system path to the Myna deployment folder
+	static public String 				rootUrl; // url to the myna root directory from / , not including protocol and server
+
+	static private final ThreadLocal<MynaThread> currentThread = new ThreadLocal<MynaThread>();
+	static public ScriptObject 			sharedGlobalScope;
+/* static CLasses*/
+	static class MynaErrorManager extends ErrorManager{
+		public MynaErrorManager() { super(); }
+		public MynaErrorManager(PrintWriter err) { super(err); }
+		public MynaThread mt;
+
+
+		public void error(ParserException e) {
+			System.err.println("Error Manager: " + e);
+			if (mt != null){
+				try{
+					mt.handleError(e);
+				} catch (Exception ex){
+					System.err.println("Error handling last error: " + ex);
+				}
+			}
+		}
+
+		
+	}
+	
+/* Static functions*/	
+	public static MynaThread getCurrentThread() {
+		return currentThread.get();
+	}
 /* End static resources */
 
 
-	public final java.lang.Thread 	javaThread 				= java.lang.Thread.currentThread();
+	public final java.lang.Thread 		javaThread 				= java.lang.Thread.currentThread();
 	public boolean 						isInitThread 			= false; //Is this the first thread after server restart?
 	public boolean 						isWaiting				= true;// am I waiting for a thread permit?
 	public boolean 						isWhiteListedThread	= false;// can  I  bypass thread management?
-	public int 								requestTimeout			= 0; //maximum time this thread should run. Set in general.properties
+	public int 							requestTimeout			= 0; //maximum time this thread should run. Set in general.properties
 	public boolean 						shouldDie				= false; //if true, this thread will be killed in objserveInstructionCount
 	
 	public boolean 						inError 					= false; //Are we currently handling an error?
@@ -69,16 +105,13 @@ public class MynaThread implements java.lang.Runnable{
 
 	public ConcurrentHashMap 			translatedSources 	= new ConcurrentHashMap();
 
-	public Vector<ScriptableObject>		sandboxRuleViolations 	= new Vector<ScriptableObject>();
-	public ScriptableObject				currentSandbox			= null;
+	
 	
 	public Context 						threadContext;
-	public ScriptableObject 			threadScope;
-	public ScriptableObject 			requestScope;
+	public ScriptObject 				threadScope;
 	
 	
-	static public String 				rootDir					= null; // system path to the Myna deployment folder
-	static public String 				rootUrl; // url to the myna root directory from / , not including protocol and server
+	
 	
 	public String 							requestDir; // system path to the directory containing the originally requested script
 	public boolean 						requestHandled			=false; // if true, than this thread has handled all output management and parent should not modify output
@@ -100,334 +133,27 @@ public class MynaThread implements java.lang.Runnable{
 	
 	public Vector 							threadChain 			= new Vector(); //history of thread calls. Used to avoid infinite recursion
 	
-	public Vector<String>				classBlacklist			= new Vector<String>(); //array of String regexes for classes that are NOT allowed by scripts
-	public Vector<String>				classWhitelist			= new Vector<String>(); //array of String regexes for classes that ARE allowed by scripts, overrides classBlacklist
 	
 	public boolean							isExiting				=	false; // set in the timeout handler to prevent further attempts to timoute the thread
-	
+/* End properties*/	
 	
 
-	/* =============== Custom context and helpers =========================== */
-		/* Custom Context to store execution time and a reference to the MynaThread
-		running in this context. The MynaThread must be set after acquiring a context 
-		for this to work */
-		static class MynaContext extends Context
-		{
-			MynaThread mynaThread;
-		}
 		
-			
-
-		/* Custom Shutter for sandoxing*/
-		public interface SandboxShutter
-		{
-			public boolean allowClassAccess(Class<?> type);
-			public boolean allowFieldAccess(Class<?> type, Object instance, String fieldName);
-			public boolean allowMethodAccess(Class<?> type, Object instance, String methodName);
-			public boolean allowStaticFieldAccess(Class<?> type, String fieldName);
-			public boolean allowStaticMethodAccess(Class<?> type, String methodName);
-		}
-				
-		/* Custom Context Factory that sets custom Context, WrapFactory, 
-		ClassShutter, and  observeInstructionCount, i.e. timeout detection */
-		static class CustomContextFactory extends ContextFactory{
-			 // Override makeContext()
-			protected Context makeContext()
-			{
-				final MynaContext cx = new MynaContext();
-				// Make Rhino runtime to call observeInstructionCount
-				// each 10000 bytecode instructions
-				int icThreshold = Integer.parseInt(
-					MynaThread.generalProperties.getProperty("timeout_ic_threshold")
-				);
-				
-				cx.setInstructionObserverThreshold(icThreshold);
-				//experimental
-					//cx.setWrapFactory(new SandboxWrapFactory());
-				
-				cx.setClassShutter(new ClassShutter()
-				{
-					@Override
-					public boolean visibleToScripts(String name)
-					{
-						MynaThread mt = cx.mynaThread;
-						if (mt == null){
-							return true;	
-						} else {
-							boolean grant = true;
-							if (mt.classBlacklist.size() == 0 && mt.classWhitelist.size() == 0) return grant;
-							
-							for(String pattern : mt.classBlacklist) {
-								
-								if (name.matches(pattern)){
-									grant= false;
-									
-								}else{
-									//log("black list fail: " + name +" != " + pattern);	
-								}
-							}
-							for(String pattern : mt.classWhitelist) {
-								if (name.matches(pattern)){
-									grant= true;	
-							
-								}else{
-									//log("white list fail: " + name +" != " + pattern);
-								}
-							}
-							
-							if (grant){
-									log("GRANTED: " + name);
-							} else {  
-								if (mt.environment.get("SANDBOX_CLASS_DEBUG") != null){
-									
-									log("class:"+name+" Sandbox Debug: Class " + name + " would have been denied");
-									return true;
-								} else{
-									log("DENIED: " + name);
-									//try to exit current sandbox, if any
-									if (mt.currentSandbox != null){
-										try{
-											String rule = "class:" +name.replaceAll("\\.","\\.");
-											mt.executeJsString(
-												mt.threadScope,
-												"Myna.Sandbox.throw('Blacklisted Class "+ name+" accessed','"+name+"');",
-												"Sandbox Exception"
-											);
-										} catch (Throwable cleanUpException){}
-									} else return true;
-								}
-							}
-							
-							//System.out.println(name);
-							return grant;
-						}
-					}
-					
-					public void log(String string){
-						MynaThread mt = cx.mynaThread;
-						if (mt == null || mt.environment.get("SANDBOX_CLASS_DEBUG") == null){
-							return;	
-						} else {
-							System.out.println(string);
-						}
-					}
-				});
-				cx.getWrapFactory().setJavaPrimitiveWrap(false);
-				return cx;
-			}
-			
-			 // Override observeInstructionCount(Context, int)
-			protected void observeInstructionCount(Context cx, int instructionCount)
-			{
-				int timeout=0;
-				long currentTime = System.currentTimeMillis();
-				long startTime =0;
-				MynaContext mcx =null;
-				if (currentTime - MynaThread.serverStarted.getTime() < 30000) return;
-				try{
-					mcx = (MynaContext)cx;
-					if (mcx == null) return;
-					if (mcx.mynaThread == null) return;
-					if (mcx.mynaThread.shouldDie){
-						mcx.reportError("Request killed via Myna Adminstrator"); 
-						return;
-					}
-					
-					startTime =mcx.mynaThread.started.getTime();
-					timeout = mcx.mynaThread.requestTimeout;
-				} catch(Throwable e){return;}
-				
-				
-				if (!mcx.mynaThread.isExiting && timeout != 0 && currentTime - startTime > timeout*1000){
-					// it is time to stop the script.
-					
-					//release our threadPermit
-					mcx.mynaThread.releaseThreadPermit();
-					
-					
-					
-					
-					String path ="";
-					try {
-						path = ((StringBuffer)(mcx.mynaThread.environment.get("requestURL"))).toString();
-						
-					} catch(Exception pathEx){}
-					
-					String errorMessage ="URL <b>" +  path +"</b> "
-						+ "request time of "+ ((currentTime - startTime)/1000) 
-						+" seconds exceeded timeout of " + timeout +" seconds.";
-						
-					//try to give global error handlers a chance to clean up
-					try{
-						mcx.mynaThread.isExiting = true;
-						mcx.mynaThread.executeJsString(mcx.mynaThread.threadScope,"$application._onError(new Error('"+ errorMessage+"'));",path);
-						//mcx.mynaThread.executeJsString(mcx.mynaThread.threadScope,"$application._onRequestEnd();",path);
-					} catch (Throwable cleanUpException){}
-					
-					// Throw Error instance to ensure that script will never
-					// get control back through catch or finally.
-					mcx.reportError(errorMessage);
-					mcx.mynaThread.isExiting = false;
-				}
-			}
-	
-			protected boolean hasFeature(Context cx, int featureIndex)
-			{
-				MynaContext mcx =null;
-				try{
-				  mcx = (MynaContext)cx;
-				  if (mcx.mynaThread == null) mcx =null;
-				} catch(Throwable e){}
-			
-				if (			featureIndex == Context.FEATURE_DYNAMIC_SCOPE 
-						|| 	featureIndex == Context.FEATURE_LOCATION_INFORMATION_IN_ERROR
-						||		featureIndex == Context.FEATURE_ENHANCED_JAVA_ACCESS
-				) {
-					return true;
-				}
-				if (featureIndex == Context.FEATURE_STRICT_MODE) {
-					//return true;
-					if (MynaThread.generalProperties.getProperty("strict_error_checking").equals("1")){
-						return true;
-					} else {
-						return false;	
-					} 
-				}
-				if (featureIndex == Context.FEATURE_WARNING_AS_ERROR) {
-					return false;
-					/* if (MynaThread.generalProperties.getProperty("strict_error_checking").equals("1")){
-						return true;
-					} else {
-						return false;	
-					} */
-				}
-				
-				if (featureIndex == Context.FEATURE_E4X) {
-					return true;
-				}
-				
-				if (featureIndex == Context.FEATURE_PARENT_PROTO_PROPERTIES){
-					if (mcx != null && mcx.mynaThread.classBlacklist.size() > 0) {
-						return false;
-					} else {
-						return true;	
-					}
-					
-				}
-				
-				return super.hasFeature(cx, featureIndex);
-			}
-			
-		}
-	
-	static class MynaErrorReporter implements ErrorReporter{
-		static final MynaErrorReporter instance = new MynaErrorReporter();
-
-		private boolean forEval;
-		private ErrorReporter chainedReporter;
-	
-		private MynaErrorReporter() { }
-	
-		static ErrorReporter forEval(ErrorReporter reporter)
-		{
-			MynaErrorReporter r = new MynaErrorReporter();
-			r.forEval = true;
-			r.chainedReporter = reporter;
-			return r;
-		}
-	
-		public void warning(String message, String sourceURI, int line,	String lineText, int lineOffset)
-		{
-			if (message.indexOf("Referenced to undefined property \"") == 0) return;
-			if (message.indexOf("Reference to undefined property \"") == 0) return;
-			if (message.indexOf("Code has no side effects") == 0) return;
-			if (message.indexOf("missing ; after statement") == 0) return;
-			if (MynaThread.generalProperties.getProperty("strict_error_checking").equals("1")){
-        /* errorText.append("<p>Stack Trace:<br><pre>");
-				
-				StringWriter traceStringWriter = new StringWriter();
-				PrintWriter tracePrintWriter = new PrintWriter(traceStringWriter);
-				
-				originalException.printStackTrace(tracePrintWriter);
-				errorText.append(traceStringWriter.toString());
-				errorText.append("</pre>"); */
-        try {
-          MynaContext mcx = (MynaContext) Context.getCurrentContext();
-          if (mcx.mynaThread != null)
-          mcx.mynaThread.log("WARNING",message,"File: " + sourceURI + "<br>Line: " + line + "<br> column: " + lineOffset +"<br>Context:<br><br>" +lineText+"<hr>");
-      } catch (Exception e){
-          System.err.println("WARNING"+":"+message+":"+"File: " + sourceURI + "<br>Line: " + line + "<br> column: " + lineOffset +"<br>Contaxt:<br><br>" +lineText); 
-      }
-				//throw runtimeError(message, sourceURI, line, lineText, lineOffset);
-			} else {
-				if (chainedReporter != null) {
-					chainedReporter.warning(
-						message, sourceURI, line, lineText, lineOffset);
-				} else {
-					// Do nothing
-				}	
-			}
-		}
-		public void error(String message, String sourceURI, int line, String lineText, int lineOffset)
-		{
-			if (message.indexOf("Code has no side effects") == 0) return;
-			if (message.indexOf("Compilation") == 0) return;
-			if (forEval) {
-				// Assume error message strings that start with "TypeError: "
-				// should become TypeError exceptions. A bit of a hack, but we
-				// don't want to change the ErrorReporter interface.
-				String error = "SyntaxError";
-				final String TYPE_ERROR_NAME = "TypeError";
-				final String DELIMETER = ": ";
-				final String prefix = TYPE_ERROR_NAME + DELIMETER;
-				if (message.startsWith(prefix)) {
-					error = TYPE_ERROR_NAME;
-					message = message.substring(prefix.length());
-				}
-				throw ScriptRuntime.constructError(error, message, sourceURI, 
-												   line, lineText, lineOffset);
-			}
-			if (chainedReporter != null) {
-				
-				chainedReporter.error(
-					message, sourceURI, line, lineText, lineOffset);
-			} else {
-				/* this was a hack for rhino < 1.7. In those versions, with strict 
-					warnigns it was not possible to check for the existance of 
-					an undefined property without triggering the 
-					"Referenced to undefined property" error. Now with 1.7 the
-					hack is no longer necessary
-				*/
-				if (message.indexOf("Referenced to undefined property \"") == 0) return;
-				
-				throw runtimeError(
-					message, sourceURI, line, lineText, lineOffset);
-			}
-		}
-	
-		public EvaluatorException runtimeError(String message, String sourceURI,
-											   int line, String lineText,
-											   int lineOffset)
-		{
-			
-			if (chainedReporter != null) {
-				return chainedReporter.runtimeError(
-					message, sourceURI, line, lineText, lineOffset);
-			} else {
-				return new EvaluatorException(
-					message, sourceURI, line, lineText, lineOffset);
-			}
-		}
-	}
-	
-	static {
-		ContextFactory.initGlobal(new CustomContextFactory());
-	}
-	
-	
 	public MynaThread() throws Exception{
 		
 		//ContextFactory.initGlobal(new CustomContextFactory());
+		final PrintStream pout = new PrintStream(System.out);
+        final PrintStream perr = new PrintStream(System.err);
+        final PrintWriter wout = new PrintWriter(pout, true);
+        final PrintWriter werr = new PrintWriter(perr, true);
+
+        // Set up error handler.
+        final ErrorManager errors = (ErrorManager) new MynaErrorManager(werr);
+        ((MynaErrorManager)errors).mt = this;
+        final Options options = new Options("nashorn", werr);
+        options.set("scripting", true);
+       
+        this.threadContext = new Context(options, errors, wout, werr, Thread.currentThread().getContextClassLoader());
 	}
 	
 	
@@ -438,14 +164,6 @@ public class MynaThread implements java.lang.Runnable{
 	public void init() throws Exception{
 		
 		synchronized (MynaThread.class){
-			if (this.environment.get("isCommandline") == null){
-				try {
-					openidConsumerManager = new ConsumerManager();
-				} catch(Exception e){
-					handleError(e);
-				}
-			}
-			
 			loadGeneralProperties();
 			int max_running_threads = Integer.parseInt(generalProperties.getProperty("max_running_threads"));
 			threadPermit = new Semaphore(max_running_threads);
@@ -455,38 +173,12 @@ public class MynaThread implements java.lang.Runnable{
 			
 			this.threadHistorySize = Integer.parseInt(generalProperties.getProperty("thread_history_size"));
 			loadDataSources();
-			//createSharedScope();
+			createSharedScope();
 			this.isInitialized = true;
 		}
 	}
 	
-	public  Scriptable createSharedScope() throws Exception{
-		long startTime = System.currentTimeMillis();
-		boolean recreateScope = Integer.parseInt(this.generalProperties.getProperty("optimization.level")) == -1;
-		try{
-			if (!recreateScope
-					&& MynaThread.sharedScope_ != null)
-			{
-				//System.err.println(Integer.parseInt(this.generalProperties.getProperty("optimization.level")));
-				return MynaThread.sharedScope_;
-			}else {
-				if (recreateScope ){
-					synchronized (MynaThread.class){
-						return buildScope();
-					} 
-				} else {
-					
-					return buildScope();
-				}
-			}
-		} finally {
-			long elapsed = System.currentTimeMillis() - startTime;
-			//System.err.println("created scope in " + elapsed +"ms");
-		}
-		
-	}
-	
-	public  Scriptable buildScope() throws Exception{
+	public  ScriptObject createSharedScope() throws Exception{
 		//save state
 		
 		String currentDir = this.currentDir;
@@ -497,24 +189,18 @@ public class MynaThread implements java.lang.Runnable{
 		runtimeStats.put("currentTask","Building Shared Scope");
 		
 		//System.err.println("re-creating scope");
-		Context cx = this.threadContext = new CustomContextFactory().enter();
-		((MynaContext) (cx)).mynaThread =this;
 		
-		cx.setErrorReporter(new MynaErrorReporter());
-		
+		this.threadScope = sharedGlobalScope = threadContext.createGlobal();
+		this.threadContext.setGlobal(this.threadScope);
+		this.threadContext.load(this.threadScope,"nashorn:mozilla_compat.js");
 		try{
-			Scriptable sharedScope = MynaThread.sharedScope_ = this.threadScope =  new ImporterTopLevel(cx);
-			Object server_gateway = Context.javaToJS(this,sharedScope);
 		
-		
-			ScriptableObject.putProperty(sharedScope, "$server_gateway", server_gateway);
 			
+			this.threadContext.eval(sharedGlobalScope, "$server_global = Packages.info.emptybrain.myna.MynaThread;", sharedGlobalScope, "<eval>", false);
+		
 			String standardLibs = MynaThread.generalProperties.getProperty("standard_libs");
-			Object[] existingObjectsArray = ((ScriptableObject)sharedScope).getAllIds();
-			HashSet existingObjects = new HashSet(Arrays.asList(existingObjectsArray));
 			
-			
-			
+						
 			if (standardLibs != null){
 				String[] libPaths=standardLibs.split(",");
 				URI sharedPath = new URI(this.rootDir).resolve("shared/js/"); 
@@ -535,132 +221,20 @@ public class MynaThread implements java.lang.Runnable{
 					this.currentDir = new URI(scriptPath.substring(0,lastSlash+1)).toString();
 					String script = readScript(scriptPath);
 					script = translateString(script,scriptPath); 
-					cx.evaluateString(sharedScope, script, scriptPath, 1, null);
-				}
-			}
-		
-			Object[] sharedIds = ((ScriptableObject)sharedScope).getAllIds();
-			
-			//add some other ids we're concerned about
-			Object[] moreIds = {"Array","Object","Date"};
-			int totalIds = sharedIds.length + moreIds.length; 
-			Object[] ids = new Object[totalIds];
-			System.arraycopy(sharedIds, 0, ids, 0, sharedIds.length);
-			System.arraycopy(moreIds, 0, ids, sharedIds.length, moreIds.length);
-
-			
-			for (int x=0;x<ids.length;++x){
-				if (!existingObjects.contains(ids[x])){
-					try{
-						ScriptableObject lib =(ScriptableObject) sharedScope.get(ids[x].toString(),sharedScope);
-						lib.sealObject();
-						try{
-							ScriptableObject proto =(ScriptableObject) lib.get("prototype",lib);
-							proto.sealObject();
-						}catch(Exception e){}// seal what we can
-						
-					}catch(Exception e){}// seal what we can
-				}
-			}
-			MynaThread.sharedScope_ = sharedScope;
-			
-			return sharedScope;
-		} catch (Exception e){
-			this.handleError(e);
-			return MynaThread.sharedScope_; //should never get here but if we do...
-		} finally {
-			cx.exit();
-			this.currentDir = currentDir;
-			this.currentScript = currentScript;
-			this.scriptName = scriptName;
-			this.requestScriptName = requestScriptName;
-		}
-		
-	}
-	public  Scriptable buildRequestScope() throws Exception{
-		//save state
-		
-		String currentDir = this.currentDir;
-		String currentScript = this.currentScript;
-		String scriptName = this.scriptName;
-		String requestScriptName = this.requestScriptName;
-		
-		runtimeStats.put("currentTask","Building Request Shared Scope");
-		
-		//System.err.println("re-creating scope");
-		Context cx = this.threadContext = new CustomContextFactory().enter();
-		((MynaContext) (cx)).mynaThread =this;
-		
-		cx.setErrorReporter(new MynaErrorReporter());
-		
-		try{
-			Scriptable sharedScope = MynaThread.sharedScope_ = this.threadScope =  new ImporterTopLevel(cx);
-			Object server_gateway = Context.javaToJS(this,sharedScope);
-		
-		
-			ScriptableObject.putProperty(sharedScope, "$server_gateway", server_gateway);
-			
-			String standardLibs = MynaThread.generalProperties.getProperty("standard_libs");
-			Object[] existingObjectsArray = ((ScriptableObject)sharedScope).getAllIds();
-			HashSet existingObjects = new HashSet(Arrays.asList(existingObjectsArray));
-			
-			
-			
-			if (standardLibs != null){
-				String[] libPaths=standardLibs.split(",");
-				URI sharedPath = new URI(this.rootDir).resolve("shared/js/"); 
-				URI curUri;
-				for (int x=0; x < libPaths.length;++x){
-					curUri = new URI(libPaths[x]);
-					if (!curUri.isAbsolute()){
-						curUri = sharedPath.resolve(new URI(libPaths[x]));
-					}
-					boolean exists =false;
-					try{exists=new File(curUri).exists();}catch(Exception e_exists){}
-					if (!curUri.isAbsolute() || !exists){
-						throw new IOException("Cannot find '" +libPaths[x] +"'  in system root directory or in '"+sharedPath.toString() +"'. See standard_libs in WEB-INF/classes/general.properties.");	
-					}
+	                this.threadContext.eval(sharedGlobalScope, script, sharedGlobalScope, scriptPath, false);
 					
-					String scriptPath = curUri.toString();
-					int lastSlash = scriptPath.lastIndexOf("/");
-					this.currentDir = new URI(scriptPath.substring(0,lastSlash+1)).toString();
-					String script = readScript(scriptPath);
-					script = translateString(script,scriptPath); 
-					cx.evaluateString(sharedScope, script, scriptPath, 1, null);
 				}
 			}
-		
-			Object[] sharedIds = ((ScriptableObject)sharedScope).getAllIds();
-			
-			//add some other ids we're concerned about
-			Object[] moreIds = {"Array","Object","Date"};
-			int totalIds = sharedIds.length + moreIds.length; 
-			Object[] ids = new Object[totalIds];
-			System.arraycopy(sharedIds, 0, ids, 0, sharedIds.length);
-			System.arraycopy(moreIds, 0, ids, sharedIds.length, moreIds.length);
+			//sharedGlobalScope.seal();
+			//sharedGlobalScope.freeze();
 
 			
-			for (int x=0;x<ids.length;++x){
-				if (!existingObjects.contains(ids[x])){
-					try{
-						ScriptableObject lib =(ScriptableObject) sharedScope.get(ids[x].toString(),sharedScope);
-						lib.sealObject();
-						try{
-							ScriptableObject proto =(ScriptableObject) lib.get("prototype",lib);
-							proto.sealObject();
-						}catch(Exception e){}// seal what we can
-						
-					}catch(Exception e){}// seal what we can
-				}
-			}
-			MynaThread.sharedScope_ = sharedScope;
-			
-			return sharedScope;
-		} catch (Exception e){
-			this.handleError(e);
-			return MynaThread.sharedScope_; //should never get here but if we do...
+			return sharedGlobalScope;
+		// } catch (Exception e){
+		// 	System.err.println("========== compile errorr " + e);
+		// 	this.handleError(e);
+		// 	return sharedGlobalScope;
 		} finally {
-			cx.exit();
 			this.currentDir = currentDir;
 			this.currentScript = currentScript;
 			this.scriptName = scriptName;
@@ -668,6 +242,27 @@ public class MynaThread implements java.lang.Runnable{
 		}
 		
 	}
+	public  ScriptObject buildScope() throws Exception{
+		/*ScriptObject scope = ((GlobalObject)sharedGlobalScope).newObject();
+		scope.setIsScope();
+		scope.setProto(sharedGlobalScope);*/
+
+		ScriptObject scope =threadContext.createGlobal();
+		//scope.setProto((ScriptObject)sharedGlobalScope);		
+		scope.put("Myna",ScriptUtils.wrap(sharedGlobalScope.get("Myna")),false);
+		//scope.put("Number",ScriptUtils.wrap(sharedGlobalScope.get("Number")),false);
+		//scope.put("Array",ScriptUtils.wrap(sharedGlobalScope.get("Array")),false);
+		//scope.put("ObjectLib",ScriptUtils.wrap(sharedGlobalScope.get("ObjectLib")),false);
+		//scope.put("Object",ScriptUtils.wrap(sharedGlobalScope.get("Object")),false);
+		//scope.put("String",ScriptUtils.wrap(sharedGlobalScope.get("String")),false);
+		//scope.put("Date",ScriptUtils.wrap(sharedGlobalScope.get("Date")),false);
+		//scope.put("Function",ScriptUtils.wrap(sharedGlobalScope.get("Function")),false);
+		//threadContext.eval(scope, "$server_global = Packages.info.emptybrain.myna.MynaThread;", scope, "<eval>", false);
+
+		return scope;
+		
+	}
+	
 	
 	/**
 	* entry point for MynaThread
@@ -677,6 +272,7 @@ public class MynaThread implements java.lang.Runnable{
 	public void handleRequest (String scriptPath) throws Exception{
 		
 		runningThreads.add(this);
+		MynaThread.currentThread.set(this);
 		runtimeStats.put("threadId",this.toString());
 		runtimeStats.put("started",this.started);
 		
@@ -690,165 +286,62 @@ public class MynaThread implements java.lang.Runnable{
 			if (!isInitialized) {
 				this.init();
 				this.isInitThread=true;
-				/*if (this.environment.get("isCommandline") == null){
-					log("INFO","Starting Myna Application Server","");
-				}*/
 				
 			}
 		}
 		this.requestTimeout= Integer.parseInt(generalProperties.getProperty("request_timeout"));
 		
-		//Scriptable sharedScope = createSharedScope();
+		
 		
 		//reset currentDir after createing shared scope
 		this.currentDir = new URI(scriptPath.substring(0,lastSlash+1)).toString();
 		
+		//System.out.println("globalScope = " + this.threadScope);
 		
-		
-		
-	 	class LocalContextAction implements ContextAction {
-			private MynaThread mt;
-			public LocalContextAction (MynaThread mt){
-				this.mt = mt;
-			}
-			public Object run(Context cx) {
-				URI sharedPath;
-				try {
-					//bind the current MynaThread to this context
-					((MynaContext) (cx)).mynaThread =mt;
-					//Scriptable sharedScope = mt.sharedScope_;
-					Scriptable sharedScope = mt.createSharedScope();
-					//this means there was an error creating the scope, and we just need
-					//to get out of the way and let the error display
-					 
-					if (sharedScope == null) return null;
-					threadContext =cx;
-					cx.setErrorReporter(new MynaErrorReporter());
-					ScriptableObject scope = threadScope = (ScriptableObject) cx.newObject(new ImporterTopLevel(cx));
-					requestScope = (ScriptableObject) cx.newObject(sharedScope);
-					
-					requestScope.setPrototype(sharedScope);
-					/* String[] libPaths={"libOO/standard_objects.sjs"};
-					sharedPath = new URI(this.mt.rootDir).resolve("shared/js/"); 
-					URI curUri;
-					for (int x=0; x < libPaths.length;++x){
-						curUri = new URI(libPaths[x]);
-						if (!curUri.isAbsolute()){
-							curUri = sharedPath.resolve(new URI(libPaths[x]));
-						}
-						boolean exists =false;
-						try{exists=new File(curUri).exists();}catch(Exception e_exists){}
-						if (!curUri.isAbsolute() || !exists){
-							throw new IOException("Cannot find '" +libPaths[x] +"'  in system root directory or in '"+sharedPath.toString() +"'. See standard_libs in WEB-INF/classes/general.properties.");	
-						}
-						
-						String scriptPath = curUri.toString();
-						int lastSlash = scriptPath.lastIndexOf("/");
-						this.mt.currentDir = new URI(scriptPath.substring(0,lastSlash+1)).toString();
-						String script = readScript(scriptPath);
-						script = translateString(script,scriptPath); 
-						cx.evaluateString(requestScope, script, scriptPath, 1, null);
-					} */
-					
-					//requestScope.setParentScope(sharedScope);
-					scope.setPrototype(requestScope);
-					scope.setParentScope(null);
-					
-					runtimeStats.put("currentTask","Waiting in thread Queue");
-					
-					if (generalProperties.getProperty("thread_whitelist").length() > 0){
-						String[] whitelist=generalProperties.getProperty("thread_whitelist").split(",");
-						int x=0;
-						for (;x<whitelist.length;++x){
-							if (requestDir.matches(whitelist[x])) isWhiteListedThread=true;
-						}
-					}
-					
-					//wait if max threads are already running
-					if (!isWhiteListedThread) {
-						//generalProperties.getProperty("request_handler")
-						boolean gotPermit =threadPermit.tryAcquire((long)requestTimeout,TimeUnit.SECONDS);
-						if (!gotPermit) {
-							throw new Exception(
-								"Too Many Requests: Unable to leave request queue after "
-								+requestTimeout+" seconds for url '" 
-								+ ((StringBuffer)(environment.get("requestURL"))).toString()
-							);
-						}
-					}
-					try{	
-						isWaiting=false;
-					
-						Object server_gateway = Context.javaToJS(this.mt,scope);
-						ScriptableObject.putProperty(scope, "$server_gateway", server_gateway);
-						sharedPath = new URI(rootDir).resolve("shared/js/");
-					
-						//execute script file
-						try{
-							String requestHandler = generalProperties.getProperty("request_handler");
-							URI requestHandlerPath = new URI(requestHandler);
-							if (!requestHandlerPath.isAbsolute()){
-								requestHandlerPath = sharedPath.resolve(requestHandlerPath);
-							}
-							if (!requestHandlerPath.isAbsolute() || !new File(requestHandlerPath).exists()){
-								throw new IOException("Cannot find '" +requestHandlerPath +"' in system root directory or in '"+sharedPath.toString() +"'. See runtime_scripts in WEB-INF/classes/general.properties.");	
-							}
-							executeJsFile(scope, requestHandlerPath.toString());
-							
-						} catch (Exception e){
-							handleError(e);
-						}
-					
-					} catch (Exception e){
-						handleError(e);
-						
-					} finally {
-							//release our threadPermit
-							releaseThreadPermit();
-					}
-					return null;
-				} catch (Exception outer){
-					throw new WrappedException(outer);
-				}
-			}
-		}
-		new CustomContextFactory().call(new LocalContextAction(this));  
-	
-		 
-		/* Scriptable sharedScope = sharedScope_;
-		 
+		URI sharedPath;
+			
 		//this means there was an error creating the scope, and we just need
-		//to get out of the way and let the error display
-		if (sharedScope == null) return;
-		Context cx = this.threadContext = new CustomContextFactory().enter();
-		cx.setErrorReporter(new MynaErrorReporter());
-		ScriptableObject scope = this.threadScope = (ScriptableObject) cx.newObject(sharedScope);
-		scope.setPrototype(sharedScope);
-		scope.setParentScope(null);
+		//to get out of the way and let the error display 
 		
+		
+		
+		
+		threadScope = this.buildScope();
+		this.threadContext.setGlobal(threadScope);
+		//this.threadContext.load(this.threadScope,"nashorn:mozilla_compat.js");
+		//this.threadContext.eval(threadScope, "$server_global = Packages.info.emptybrain.myna.MynaThread;", threadScope, "<eval>", false);
+		threadScope.put("$server_gateway",this,false);
+
+											
 		runtimeStats.put("currentTask","Waiting in thread Queue");
-		
 		
 		if (generalProperties.getProperty("thread_whitelist").length() > 0){
 			String[] whitelist=generalProperties.getProperty("thread_whitelist").split(",");
 			int x=0;
 			for (;x<whitelist.length;++x){
-				if (this.requestDir.matches(whitelist[x])) isWhiteListedThread=true;
+				if (requestDir.matches(whitelist[x])) isWhiteListedThread=true;
 			}
 		}
 		
 		//wait if max threads are already running
-		if (!isWhiteListedThread) threadPermit.acquire();
-		
-		this.isWaiting=false;
-		try{
-			Object server_gateway = Context.javaToJS(this,scope);
-			ScriptableObject.putProperty(scope, "$server_gateway", server_gateway);
-			URI sharedPath = new URI(this.rootDir).resolve("shared/js/");
+		if (!isWhiteListedThread) {
+			//generalProperties.getProperty("request_handler")
+			boolean gotPermit =threadPermit.tryAcquire((long)requestTimeout,TimeUnit.SECONDS);
+			if (!gotPermit) {
+				throw new Exception(
+					"Too Many Requests: Unable to leave request queue after "
+					+requestTimeout+" seconds for url '" 
+					+ ((StringBuffer)(environment.get("requestURL"))).toString()
+				);
+			}
+		}
+		try{	
+			isWaiting=false;
+			sharedPath = new URI(rootDir).resolve("shared/js/");
 		
 			//execute script file
 			try{
-				String requestHandler = this.generalProperties.getProperty("request_handler");
+				String requestHandler = generalProperties.getProperty("request_handler");
 				URI requestHandlerPath = new URI(requestHandler);
 				if (!requestHandlerPath.isAbsolute()){
 					requestHandlerPath = sharedPath.resolve(requestHandlerPath);
@@ -856,23 +349,22 @@ public class MynaThread implements java.lang.Runnable{
 				if (!requestHandlerPath.isAbsolute() || !new File(requestHandlerPath).exists()){
 					throw new IOException("Cannot find '" +requestHandlerPath +"' in system root directory or in '"+sharedPath.toString() +"'. See runtime_scripts in WEB-INF/classes/general.properties.");	
 				}
-				this.executeJsFile(scope, requestHandlerPath.toString());
+				executeJsFile(threadScope, requestHandlerPath.toString());
+				
 			} catch (Exception e){
-				this.handleError(e);
+				handleError(e);
 			}
 		
 		} catch (Exception e){
-			this.handleError(e);
+			handleError(e);
 			
 		} finally {
-			//release our threadPermit
-			if (!isWhiteListedThread) threadPermit.release();
-			//remove this thread form the running list
-			runningThreads.remove(this);
-			// Exit from the context.
-			Context.exit(); 
-			
-		} */
+				//release our threadPermit
+				releaseThreadPermit();
+		}
+
+		
+		
 	}
 	
 	public void releaseThreadPermit() {
@@ -883,6 +375,7 @@ public class MynaThread implements java.lang.Runnable{
 		}
 		//remove this thread form the running list
 		runningThreads.remove(this);
+		MynaThread.currentThread.remove();
 	}
 	
 	public void callFunction (String f,Object[] args) throws Exception{
@@ -900,64 +393,7 @@ public class MynaThread implements java.lang.Runnable{
 		this.environment.put("threadFunctionSource",f);
 		this.environment.put("threadFunctionArguments",args);
 		
-	 	class LocalContextAction implements ContextAction {
-			private MynaThread mt;
-			private MynaThread pt;
-			private String f;
-			private Object[] args;
-			public LocalContextAction (MynaThread mt,String f,Object[] args){
-				this.mt = mt;
-				this.f = f;
-				this.args = args;
-			}
-			public Object run(Context cx) {
-				try {
-					Scriptable sharedScope = mt.sharedScope_;
-										 
-					if (sharedScope == null) return null;
-					threadContext =cx;
-					cx.setErrorReporter(new MynaErrorReporter());
-					ScriptableObject scope = threadScope = (ScriptableObject) cx.newObject(new ImporterTopLevel(cx));
-					scope.setPrototype(sharedScope);
-					scope.setParentScope(null);
-					isWaiting=false;
-					try{
-						Object server_gateway = Context.javaToJS(this.mt,scope);
-						ScriptableObject.putProperty(scope, "$server_gateway", server_gateway);
-						URI sharedPath = new URI(rootDir).resolve("shared/js/");
-						//execute script file
-						try{
-							String requestHandler = generalProperties.getProperty("request_handler");
-							URI requestHandlerPath = new URI(requestHandler);
-							if (!requestHandlerPath.isAbsolute()){
-								requestHandlerPath = sharedPath.resolve(requestHandlerPath);
-							}
-							if (!requestHandlerPath.isAbsolute() || !new File(requestHandlerPath).exists()){
-								throw new IOException("Cannot find '" +requestHandlerPath +"' in system root directory or in '"+sharedPath.toString() +"'. See runtime_scripts in WEB-INF/classes/general.properties.");	
-							}
-							executeJsFile(scope, requestHandlerPath.toString());
-							//return f.call(cx, scope, scope, args);
-						
-						} catch (Exception e){
-							handleError(e);
-						}
-					
-					} catch (Exception e){
-						handleError(e);
-						
-					} finally {
-							//remove this thread form the running list
-
-							runningThreads.remove(this.mt);
-							//threadPermit.release();
-					}
-					return null;
-				} catch (Exception outer){
-					throw new WrappedException(outer);
-				}
-			}
-		}
-		new CustomContextFactory().call(new LocalContextAction(this,f,args));  
+		System.out.println(" callFunction: " + f);
 	}
 	/**
 	* handles errors during JS execution
@@ -971,9 +407,8 @@ public class MynaThread implements java.lang.Runnable{
 		originalException.printStackTrace(System.err);
 		
 		try{
-			if (!this.inError &&(originalException instanceof RhinoException || originalException instanceof EcmaError)){
-				Object exception = Context.javaToJS(originalException,this.threadScope);
-				ScriptableObject.putProperty(this.threadScope, "exception", exception);
+			if (!this.inError &&(originalException instanceof NashornException )){
+				this.threadScope.put("exception", originalException,false);
 				this.executeJsString(this.threadScope,"$application._onError(exception);","Compile Error");
 			} else {
 				StringBuffer errorText = new StringBuffer();
@@ -1016,41 +451,66 @@ public class MynaThread implements java.lang.Runnable{
 	* @param  script String containing the JavaScript code to execute
 	* @param  scriptPath Filesystem path to the file containing script
 	*/
-	public void executeJsString(Scriptable scope, String script, String scriptPath) throws Exception{
+	public void executeJsString(ScriptObject scope, String script, String scriptPath) throws Exception{
 		Context cx = this.threadContext; 
 		long start=0;
 		long end=0;
+		scriptPath = getNormalizedPath(scriptPath);
 		start = new java.util.Date().getTime();
+		ScriptFunction compiled;
 		try {
-			cx.setOptimizationLevel(-1);
-			JCS cache = JCS.getInstance("scriptCache");
+			/*JCS cache = JCS.getInstance("scriptCache");
 			//scriptPath =getNormalizedPath(scriptPath) 
 			int key = script.hashCode();
-			Script compiled= (Script) cache.get(key);
+			ScriptFunction compiled= (ScriptFunction) cache.get(key);
 			
 			script = translateString(script,scriptPath);
 			this.currentScript = script;
 			
 			if (compiled == null){
-				/* reference to original lexer/parser, just in case the new one becomes problematic */
-					/* script = parseEmbeddedJsBlocks(script);
-					if (scriptPath.matches(".*.ejs")) {
-						script = parseEmbeddedJs(script);
-					} */ 
-					
-				
-				  
-				compiled = cx.compileString(script, scriptPath, 1, null);
-				cache.put(key,compiled);
+
+				compiled = cx.compileScript(new Source(scriptPath, script), this.threadScope);
+				//cache.put(key,compiled);
 			}
-			compiled.exec(cx,scope);
+			ScriptRuntime.apply(compiled,this.threadScope);*/
+			//scope.setProto(this.threadScope);
+			script = translateString(script,scriptPath);
+			ScriptObject target = null;
+			if (!scope.isScope()){
+				target = scope;
+				ScriptObject evalScope = ((GlobalObject)Context.getGlobal()).newObject();
+				//System.out.println("----------------------------------------------------------------------");
+				//System.out.println("Loading " + scriptPath + " scope " + scope.isScope());
+				evalScope.setIsScope();
+				evalScope.setProto(this.threadScope);
+				jdk.nashorn.internal.objects.NativeObject.bindProperties(null,evalScope,scope);
+				scope=evalScope;
+				//System.err.println("Compiled " + scriptPath + " in eval scope");
+				compiled = cx.compileScript(new Source(scriptPath, script+ "/*" + System.currentTimeMillis() +"*/"), scope);
+			} else {
+				//System.err.println("Compiled " + scriptPath + " in global scope");
+				compiled = cx.compileScript(new Source(scriptPath, script), scope);
+			}
+			
+			ScriptRuntime.apply(compiled,this.threadScope);
+			//cx.eval(scope, script + "/*" + System.currentTimeMillis() +"*/", scope, scriptPath, false);
+			if (target != null){//bind the created sope properties to the passed scope
+				jdk.nashorn.internal.objects.NativeObject.bindProperties(null,target,scope);
+			}
+
+			
 		} catch (Exception e){
 			this.handleError(e);
 		}
 		
 	}
-	
-	void executeJsFile(Scriptable scope, String scriptPath) throws Exception{
+	public ScriptObject createScope() throws Exception{
+		ScriptObject evalScope = ((GlobalObject)Context.getGlobal()).newObject();
+		evalScope.setIsScope();
+		evalScope.setProto(this.threadScope);
+		return evalScope;
+	}
+	void executeJsFile(ScriptObject scope, String scriptPath) throws Exception{
 		File scriptFile;
 		scriptPath = getNormalizedPath(scriptPath);
 		JCS cache = JCS.getInstance("scriptCache");
@@ -1079,20 +539,100 @@ public class MynaThread implements java.lang.Runnable{
 
 			
 			int key = script.hashCode();
-			Script compiled;
+			ScriptFunction compiled;
 			
-			threadContext.setOptimizationLevel(-1);
-			compiled = threadContext.compileString(
-				translateString(script,scriptPath), 
-				scriptPath, 
-				1, 
-				null
+			
+			compiled = this.threadContext.compileScript(
+				new Source(
+					scriptPath, 
+					translateString(script,scriptPath)
+				), 
+				this.threadScope
 			);
-			
-			cache.put(key,compiled);
+
+			//cache.put(key,compiled);
 			
 		}
 		executeJsString(scope, script, scriptPath);
+	}
+
+	void executeNashornFile(ScriptObject scope, String scriptPath) throws Exception{
+		try{
+		final PrintStream pout = new PrintStream(System.out);
+        final PrintStream perr = new PrintStream(System.err);
+        final PrintWriter wout = new PrintWriter(pout, true);
+        final PrintWriter werr = new PrintWriter(perr, true);
+
+        // Set up error handler.
+        final ErrorManager errors = new ErrorManager(werr);
+        final Options options = new Options("nashorn", werr);
+
+       
+        
+      
+        Context C =  new Context(options, errors, wout, werr, Thread.currentThread().getContextClassLoader());
+
+        URL pathUrl = new URL(getNormalizedPath(scriptPath));
+		String scriptCode =  org.apache.commons.io.FileUtils.readFileToString(new File(pathUrl.toURI()));
+
+	
+		try {
+        	ScriptObject global = C.createGlobal();
+        	C.setGlobal(global);
+
+        	global.put("$server_gateway",this,false);
+        	
+        	
+
+        	/*Object res;
+            try {
+                res = C.eval(global, scriptCode, global, null, false);
+            } catch (final Exception e) {
+                System.err.println(e);
+                
+                e.printStackTrace(System.err);
+                
+                
+            }*/
+
+
+        	Source source = new Source(scriptPath, pathUrl);
+        	//System.out.println(source);
+        	//System.out.println(global);
+            final ScriptFunction script = C.compileScript(source, global);
+            if (script == null || errors.getNumberOfErrors() != 0) {
+                return;
+            }
+
+            try {
+                 ScriptRuntime.apply(script, global);
+            } catch (final NashornException e) {
+                errors.error(e.toString());
+                e.printStackTrace(C.getErr());
+                return;
+            }
+            
+        } finally {
+            C.getOut().flush();
+            C.getErr().flush();
+        }		
+	    } catch(Exception outer){
+	    	StringBuffer errorText = new StringBuffer();
+				
+				errorText.append(outer.getClass().getName() + ": ");
+				errorText.append(outer.getMessage() + "<br>");
+				errorText.append("<p>Stack Trace:<br><pre>");
+				
+				StringWriter traceStringWriter = new StringWriter();
+				PrintWriter tracePrintWriter = new PrintWriter(traceStringWriter);
+				
+				outer.printStackTrace(tracePrintWriter);
+				errorText.append(traceStringWriter.toString());
+				errorText.append("</pre>");
+
+				System.out.print(errorText.toString());
+	    }
+		
 	}
 	
 	/**
@@ -1326,11 +866,11 @@ public class MynaThread implements java.lang.Runnable{
 
 		if (!this.inError && this.threadScope != null){
 			try{
-			ScriptableObject myna = (ScriptableObject)this.threadScope.get("Myna", this.threadScope);
-			Function fct = (Function)this.threadScope.get("log", myna);
-			fct.call(
-        		this.threadContext, 
-        		this.threadScope,
+			ScriptObject myna = (ScriptObject)this.threadScope.get("Myna");
+
+			ScriptFunction fct = (ScriptFunction)myna.get("log");
+			ScriptRuntime.apply(
+				fct,
         		this.threadScope,
         		new Object[] {
         			type,
@@ -1415,7 +955,7 @@ public class MynaThread implements java.lang.Runnable{
 	
 	
 	public void sealObject(Object obj){
-		((ScriptableObject) obj).sealObject();	
+		
 	}
 	
 	
@@ -1428,7 +968,7 @@ public class MynaThread implements java.lang.Runnable{
 		include(scriptPath,this.threadScope);
 	}
 	
-	public void include(String scriptPath, Scriptable scope) throws Exception{
+	public void include(String scriptPath, ScriptObject scope) throws Exception{
 		String originalDir = this.currentDir;
 		String originalScriptName = this.scriptName;
 		
@@ -1457,7 +997,7 @@ public class MynaThread implements java.lang.Runnable{
 		
 	}
 	
-	public void includeOnce(String scriptPath, Scriptable scope) throws Exception{
+	public void includeOnce(String scriptPath, ScriptObject scope) throws Exception{
 		String realPath = getNormalizedPath(scriptPath); 
 		
 		if (uniqueIncludes_.add(realPath)){
@@ -1545,137 +1085,9 @@ public class MynaThread implements java.lang.Runnable{
 		
 		return translated;
 	}
-		/**
-	* A pre-processor to convert embedded JavaScript (.ejs) into Serverside JavaScript (.sjs) 
-	*
-	* @param  content emebeded JavaScript content to translate
-	* @return  translated content
-	*/
-	public String parseEmbeddedJsBlocks(String content) throws Exception{
-		StringBuffer script = new StringBuffer();
 	
-		int length = content.length();
-		
-		int x=0;
-		int startTag;
-		int endTag;
-		int emergencyExit=0;
-		while (x < length)
-		{
-			if (++emergencyExit > 100000) throw new Exception("Infinite loop.");
-			
-			startTag = content.indexOf("<ejs>",x);
-			if (startTag < 0){
-				script.append(content.substring(x));
-				break;
-			}
-			script.append(content.substring(x,startTag));
-			startTag+=5;
-			endTag = content.indexOf("</ejs>",startTag);
-			if (endTag > -1) {
-				script.append("function(){ var originalContent= $res.clear();");
-				script.append(parseEmbeddedJs(content.substring(startTag,endTag)) + "");
-				script.append("var newContent= $res.clear();");
-				script.append("$res.print(originalContent);");
-				script.append("return newContent;}.apply(this)");
-				x= endTag+6;
-				continue;
-			} else {
-				throw new Exception("Missing end </ejs>.");	
-			}
-		}	
-		return script.toString();
-	}
 	
-	/**
-	* A pre-processor to convert embedded JavaScript (.ejs) into Serverside JavaScript (.sjs) 
-	*
-	* @param  content emebeded JavaScript content to translate
-	* @return  translated content
-	*/
-	public String parseEmbeddedJs(String content) throws Exception{
-		StringBuffer textBuffer = new StringBuffer();
-		StringBuffer jsBuffer = new StringBuffer();
-		StringBuffer script = new StringBuffer();
 	
-		int length = content.length();
-		
-		int x=0;
-		int i=0;
-		int nextTag ;
-		int emergencyExit=0;
-		while (x < length)
-		{
-			if (++emergencyExit > 100000) throw new Exception("Infinite loop.");
-			if (x+3 < length && content.substring(x,x+4).equals("<%--") ){ //comment begin
-				//search for end comment
-				int nextIndex = content.indexOf("--%>",x+4);
-				if (nextIndex > -1) {
-					String [] lines  = content.substring(x+4,nextIndex).split("\n");
-					for (i =0;i<lines.length;++i){
-						script.append("/*" + lines[i] +"*/");
-						if (i < lines.length -1) script.append("\n");
-					}
-					x = nextIndex+4;
-					continue;
-				} else {
-					throw new Exception("Missing end comment.");	
-				}
-			} else if (x+2 < length && content.substring(x,x+3).equals("<%=") ){ //evaluate tag begin
-				//search for end of tag
-				int nextIndex = content.indexOf("%>",x+3);
-				if (nextIndex > -1) {
-					script.append("$res.print(String(" + content.substring(x+3,nextIndex) + "));");
-					x = nextIndex+2;
-					continue;
-				} else {
-					throw new Exception("Missing end %>.");	
-				}
-			} else if (x+1 < length && content.substring(x,x+2).equals("<%") ){
-				//search for end of tag
-				int nextIndex = content.indexOf("%>",x+2);
-				if (nextIndex > -1) {
-					script.append(content.substring(x+2,nextIndex) + "\n");
-					x = nextIndex+2;
-					//if (content.substring(x,x+1).equals("\n")) ++x;
-					continue;
-				} else {
-					throw new Exception("Missing end %>.");	
-				}
-			} else if ((nextTag = content.indexOf("<%",x)) >= x ){
-				String [] lines  = content.substring(x,nextTag).split("\n");
-				for (i =0;i<lines.length;++i){
-					script.append("$res.print('" + JSEscape(lines[i]));
-					
-					if (i < lines.length -1) {
-						script.append( "\\n');\n");
-
-					} else {
-						script.append( "');");
-					}
-	
-				}
-				x= nextTag;
-				continue;
-			} else {
-				String [] lines  = content.substring(x,length).split("\n");
-				for (i =0;i<lines.length;++i){
-					script.append("$res.print('" + JSEscape(lines[i]));
-					
-					if (i < lines.length -1) {
-						script.append( "\\n');\n");
-
-					} else {
-						script.append( "');");
-					}
-	
-				}
-				//script.append("$res.print('" + JSEscape(content.substring(x,length)) + "\\n');\n");
-				break;
-			}
-		}
-		return script.toString();
-	}
 	
 	public Object spawn(String func, Object[] args) throws Exception{
 		MynaThread mt = buildBackgroundThread(func,args);
@@ -1720,6 +1132,7 @@ public class MynaThread implements java.lang.Runnable{
 			if ((Boolean) environment.get("RequestThread") == true) {
 				this.isWaiting =true;	
 				runningThreads.add(this);
+				MynaThread.currentThread.set(this);
 				threadPermit.acquire();
 				this.isWaiting =false;	
 			}
@@ -1736,56 +1149,7 @@ public class MynaThread implements java.lang.Runnable{
 		}
 	}
    
-			
-	public void serializeToStream(ScriptableObject obj, java.io.OutputStream os)
-		throws IOException
-	{
-		ScriptableOutputStream out = new ScriptableOutputStream(os, this.threadScope);
-		out.writeObject(obj);
-		out.close();
-	}
-
-	public Object deserializeFromStream(java.io.InputStream is)
-		throws IOException, ClassNotFoundException
-	{
-		
-		ObjectInputStream in = new ScriptableInputStream(is, this.threadScope);
-		Object deserialized = in.readObject();
-		in.close();
-		return this.threadContext.toObject(deserialized, this.threadScope);
-	}
 	
-	public Object importObject(Scriptable obj)
-		throws IOException, ClassNotFoundException
-	{
-		obj.setParentScope(this.threadScope);
-		return this.threadContext.toObject(obj, this.threadScope);
-	}
 
-	static class NativeJavaProxy extends NativeJavaObject{
-		protected Function getter;
-		public NativeJavaProxy(Scriptable scope, Object javaObject,
-                            Class<?> staticType, Function f)
-	    {
-	    	
-	        super(scope,javaObject,staticType,false);
-	        this.getter = f;
-	    }
-	    
 
-	    public final boolean __proxied__ = true;
-
-	    public Object get(String name, Scriptable start) {
-	    	Object[] args = {this.javaObject,name,super.get(name,start)};
-	    	return this.getter.call(Context.getCurrentContext(),
-                    this.getter.getParentScope(),
-                    this.getter.getParentScope(),
-                    args);
-	    }
-
-	
-	}
-	public NativeJavaProxy proxyWrapJavaObject(Object javaObject, Class<?> staticType, org.mozilla.javascript.Function f){
-		return new NativeJavaProxy(this.threadScope, javaObject, staticType,f);
-	}
 }

@@ -74,14 +74,17 @@ if (!$server_gateway.environment.containsKey("isCommandline")){
 	
 	/* add connection testing to datasources */
 	Myna.printConsole("Load datasources and add health checks...");
-	var keys = Myna.JavaUtils.enumToArray($server_gateway.javaDataSources.keys());
+	var keys = Myna.JavaUtils.enumToArray(Packages.info.emptybrain.myna.MynaThread.javaDataSources.keys());
 	var dbTypes = {}
+	var files = new Myna.File("/shared/js/libOO/db_properties/").listFiles("sjs")
+
+
 	new Myna.File("/shared/js/libOO/db_properties/").listFiles("sjs").forEach(function(file){
 		dbTypes[file.fileName.listFirst(".")] = Myna.include(file.toString(),{})
 	})
 	keys.forEach(function(dsName){
-		  var bds = $server_gateway.javaDataSources.get(dsName);
-		  var ds = Myna.JavaUtils.mapToObject($server_gateway.dataSources.get(dsName));
+		  var bds = Packages.info.emptybrain.myna.MynaThread.javaDataSources.get(dsName);
+		  var ds = Myna.JavaUtils.mapToObject(Packages.info.emptybrain.myna.MynaThread.dataSources.get(dsName));
 		  var file = new Myna.File("/WEB-INF/myna/ds/" + ds.type);
 		
 		  if (ds.type in dbTypes &&
@@ -148,91 +151,15 @@ if (!$server_gateway.environment.containsKey("isCommandline")){
 		}
 	
 	//reload cron
-		Myna.printConsole("Loading scheduled tasks...");
+		/*Myna.printConsole("Loading scheduled tasks...");
 		Myna.Admin.task.scheduleNextRun();
 		var cronThread = new java.util.Timer();
 		cronThread.schedule(
 			new Packages.info.emptybrain.myna.CronTimerTask(),
 			10,
 			Date.getInterval(Date.SECOND,10)
-		)
-	//set up HazelCast
-		new Myna.Thread(function(){
-			/* disabled */ return
-			
-			
-				var Hazelcast = com.hazelcast.core.Hazelcast;
-				var config = new com.hazelcast.config.XmlConfigBuilder().build();
-				var perms= $server.dataSources.myna_permissions;
-				var password=Myna.Permissions.getAuthKey("cluster_key");
-				//set groupname and password
-					config.setGroupConfig(new com.hazelcast.config.GroupConfig(perms.url,password));
-				//add unicast addresses of cluster members
-					var tcpConfig = config.getNetworkConfig().getJoin().getTcpIpConfig()//new com.hazelcast.config.TcpIpConfig()
-					//add ourself if not already in there
-					
-					/* new Myna.Query({
-						ds:"myna_permissions",
-						sql:<ejs>
-							select distinct
-								ip
-							from cluster_members
-						</ejs>,
-						values:{}
-					}).data
-					.forEach(function(row){
-						tcpConfig.addMember(
-							row.ip
-						);
-					}) */
-					
-					
-					tcpConfig.setEnabled(true);
-					config.getNetworkConfig().getJoin().setTcpIpConfig(tcpConfig);
-				//set encryption password
-					var cryptConfig = config.getNetworkConfig().getSymmetricEncryptionConfig();
-					cryptConfig.setPassword(password);
-				// setup session map
-					var sessionConfig = new com.hazelcast.config.MapConfig()
-					sessionConfig.setName("__MYNA_SESSION__")
-					sessionConfig.setMaxIdleSeconds(5)
-					sessionConfig.setEvictionDelaySeconds(3)
-					sessionConfig.setEvictionPolicy('LRU')
-					var mapConfigs = config.getMapConfigs()
-					mapConfigs.put("__MYNA_SESSION__",sessionConfig);
-					config.setMapConfigs(mapConfigs)
-				Hazelcast.init(config);
-				var ipMan =new Myna.DataManager("myna_permissions").getManager("cluster_members");
-				var id = $server.hostName+"/"+$server.instance_id;
-				var localMember = com.hazelcast.core.Hazelcast.getCluster().getLocalMember().getInetSocketAddress();
-				ipMan.create({
-					id:id,
-					ip:localMember.getAddress().getHostAddress(),
-					port:localMember.getPort()
-				})
-					
-				//create global listeners variable
-					$server.set("event_listeners",{})
-				//load registered listeners
-				if (new Myna.File("/WEB-INF/myna/registered_listeners.sjs").exists()){ 
-					Myna.include("/WEB-INF/myna/registered_listeners.sjs");
-				}
-				/* new Myna.Event("test").listen({
-					handler:function(event){
-						java.lang.System.out.println(event.toJson())
-					}
-				})
-				
-				new Myna.Event("test").listen({
-					path:"/event_target.sjs",
-					purpose:$server.purpose
-				}) 
-				new Myna.Event("test").listen({
-					url:"http://localhost:8180/dev/event_target.sjs",
-					server:$server.hostName
-				})  */
-		
-		})
+		)*/
+	
 	
 	
 	

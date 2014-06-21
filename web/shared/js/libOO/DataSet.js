@@ -77,12 +77,24 @@
 					ds.loader = options.loader;
 				}
 		}
+		//java.lang.System.out.println("=============================================================================================")
+		if ("getOwnPropertyDescriptor" in Object){
+			Object.keys(ds).forEach(function (k) {
+				//Myna.println("hiding key " + k);
+				//java.lang.System.out.println("hiding " + k)
+				var d =Object.getOwnPropertyDescriptor(ds, k)
+				d.enumerable = false;
+				Object.defineProperty(ds, k, d)	
+			})
+		}
+		
 		return ds;
 	}
 	/* Property: columns
 		Array of column names in this DataSet
 	*/
 	DataSet.prototype.columns = null;
+
 	DataSet.prototype.load = function(options){
 		if (this.loader){
 			options = options||{}
@@ -175,6 +187,11 @@
 			compare = function(columnValue){
 				return regex.test(columnValue)
 			}
+		}
+		if (typeof compare != "function"){
+			java.lang.System.err.println(compare.toSource());
+			java.lang.System.err.println(typeof compare);
+			java.lang.System.err.println(compare instanceof RegExp);
 		}
 		for (var x=0; x < this.length; ++x){
 			if (compare(this[x][column],this[x],x,this)){

@@ -2,6 +2,7 @@
 	Global object that contains properties related to the current 
 	request. 
 */ 
+
 var $req={
 /* Property: authUser
 		If a  "Basic" auth token is supplied ion the header, this function 

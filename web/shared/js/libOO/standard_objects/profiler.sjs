@@ -7,5 +7,6 @@
 	
 	
 */
-	
-	var $profiler = new Myna.Profiler($server_gateway.started.getTime());
+
+
+var $profiler = new Myna.Profiler($server_gateway.started.getTime());

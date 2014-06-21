@@ -6,6 +6,7 @@
 	Logs to standard output (Myna.printConsole)
 	*/
 	function log(data){
+		
 		data.checkRequired(["log_id"]);
 		data.setDefaultProperties({
 			type:"",

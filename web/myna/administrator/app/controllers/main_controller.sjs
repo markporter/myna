@@ -82,13 +82,13 @@
 				});
 				con.connect();
 				var xml=con.getResponseXml();
-				default xml namespace = xml.namespace();
+				/*default xml namespace = xml.namespace();
 				var result;
 				for each (item in xml..item){
 					if (/.war$/.test(item.title.toString())){
 						return item.title.toString().listLast("/").listBefore(".");
 					}
-				}
+				}*/
 				//var node = Array.parse(xml..item).first();
 				//return node.title.toString().listLast("/").listBefore(".");
 			}
@@ -308,7 +308,7 @@ function extLoad(params){
 		}
 	}
 function test(){
-	var con = new Myna.HttpConnection({
+	/*var con = new Myna.HttpConnection({
 		url:"https://sourceforge.net/api/file/index/project-id/202389/mtime/desc/limit/20/rss",
 		method:"GET"
 	});
@@ -321,7 +321,7 @@ function test(){
 			result = item.title.toString().listLast("/").listBefore(".");
 			break;
 		}
-	}
+	}*/
 	/*var nodes = Array.parse(xml..item);
 	var node = nodes.first()
 	var result = node.title.toString().listLast("/").listBefore(".");*/

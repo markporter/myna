@@ -1,9 +1,9 @@
-//throw new Error(Myna.dump(this))
-
+$server_global = Packages.info.emptybrain.myna.MynaThread;
+$server_gateway.includeOnce("/shared/js/libOO/standard_objects.sjs")
 try{
 	//standard objects
 	$server_gateway.includeOnce("/shared/js/libOO/standard_objects.sjs")
-	
+	java.lang.System.err.println("$req = currentThread: " + ($server_global.getCurrentThread().$req == $req));
 	// try to resolve mapping
 	$req.scriptFile =new Myna.File($server.requestDir + $server.requestScriptName);
 	if (
@@ -104,8 +104,10 @@ try{
 		$application._initScopes();
 		$application._onRequestStart();
 	} catch (e){
+		Myna.println(Myna.formatError(e));
 		$application.onError(e);
 	}
+
 	//if the application.sjs has not already handled this request
 	if (!$req.handled){
 		if ($req._DIR_LISTING_ELIGIBLE_){
@@ -210,9 +212,16 @@ try{
 		}
 	}
 } catch(e){
+	
+	//print("requestHanler: Error: " +e)
 	if (e.message != "___MYNA_ABORT___"){
 		Myna.log("ERROR","Thread Error: " +e.message,Myna.formatError(e));
-		$application.onError(e);
+		
+		if ($applicaitnot && ("onError" in $application)){
+			$application.onError(e);
+		} else {
+			$server_gateway.handleError(e.nashornException||e);	
+		}
 	}
 } finally{
 	//on end

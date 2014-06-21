@@ -1,6 +1,7 @@
 /* 	Class:  $server
 	Global object that stores information about the server environment.
 */
+
 var $server={
 /* property: commandPath
 		OS path to the commandline invoker
@@ -18,7 +19,7 @@ var $server={
 	*/	
 	get dataSources(){
 		var result ={}
-		Myna.JavaUtils.mapToObject($server_gateway.dataSources)
+		Myna.JavaUtils.mapToObject($server_global.getCurrentThread().dataSources)
 		.forEach(function(v,k){
 			result[k] =Myna.JavaUtils.mapToObject(v); 
 		})
@@ -27,42 +28,42 @@ var $server={
 /* property: isThread
 	true if this is an independent thread with no access to session or servlet 
 	*/
-	get isThread(){return !!$server_gateway.environment.get("threadFunctionSource") },
+	get isThread(){return !!$server_global.getCurrentThread().environment.get("threadFunctionSource") },
 /* property: isCommandline
 	true if this code is running from the commandline 
 	*/
-	get isCommandline(){return $server_gateway.environment.get("isCommandline") },
+	get isCommandline(){return $server_global.getCurrentThread().environment.get("isCommandline") },
 /* property: threadFunctionSource
 	the source of the function that the current subthread is executing, or null 
 	if this is not a subthread 
 	*/
-	get threadFunctionSource(){return $server_gateway.environment.get("threadFunctionSource") },
+	get threadFunctionSource(){return $server_global.getCurrentThread().environment.get("threadFunctionSource") },
 	
 	
 /* property: instanceId 
 	an identifier for this server instance 
 	*/
-	get instance_id(){return String($server_gateway.generalProperties.getProperty("instance_id"))},
-	get instanceId(){return String($server_gateway.generalProperties.getProperty("instance_id"))},
+	get instance_id(){return String(Packages.info.emptybrain.myna.MynaThread.generalProperties.getProperty("instance_id"))},
+	get instanceId(){return String(Packages.info.emptybrain.myna.MynaThread.generalProperties.getProperty("instance_id"))},
 /* property: purpose 
 	A short name that describes the purpose of this instance. Set in General 
 	Settings of Myna Administrator
 	*/
-	get purpose(){return String($server_gateway.generalProperties.getProperty("instance_purpose"))},	
+	get purpose(){return String(Packages.info.emptybrain.myna.MynaThread.generalProperties.getProperty("instance_purpose"))},	
 
 /* property: response
 		A reference to servlet response object
 	*/	
-	get response(){return $server_gateway.environment.get("response")},
+	get response(){return $server_global.getCurrentThread().environment.get("response")},
 /* property: request
 		A reference the servlet request object.  
 	*/
 	get request(){
-		var pThread=$server_gateway.environment.get("threadParent")
+		var pThread=$server_global.getCurrentThread().environment.get("threadParent")
 		if (pThread){
 			return pThread.environment.get("request");
 		} else {
-			return $server_gateway.environment.get("request")
+			return $server_global.getCurrentThread().environment.get("request")
 		}
 	},
 /* property: requestScriptName
@@ -72,11 +73,11 @@ var $server={
 		> index.sjs
 	*/	
 	get requestScriptName(){ 
-		var pThread=$server_gateway.environment.get("threadParent")
+		var pThread=$server_global.getCurrentThread().environment.get("threadParent")
 		if (pThread){
 			return String(pThread.requestScriptName)
 		} else {
-			return String($server_gateway.requestScriptName)
+			return String($server_global.getCurrentThread().requestScriptName)
 		}
 	},
 /* property: serverUrl
@@ -106,8 +107,8 @@ var $server={
 			}
 			return proto+"://"+$req.headers["x-forwarded-host"][0]		
 		} else {
-			var URL = String($server_gateway.environment.get("requestURL"));
-			var URI = String($server_gateway.environment.get("requestURI"));
+			var URL = String($server_global.getCurrentThread().environment.get("requestURL"));
+			var URI = String($server_global.getCurrentThread().environment.get("requestURI"));
 			//return URL + ":" +URI;
 			return URL.left(URL.length-URI.length);
 		}
@@ -144,7 +145,7 @@ var $server={
 		Example:
 		> file:/usr/share/tomcat/webapps/myna/myna/administrator/
 	*/
-	get requestDir(){ return String($server_gateway.requestDir)},
+	get requestDir(){ return String($server_global.getCurrentThread().requestDir)},
 	
 /* property: requestUrl
 			URL Path representing the directory of the originally requested script.
@@ -154,7 +155,7 @@ var $server={
 	  */
 	  get requestUrl(){
 			if (!$server.request) return "";
-			var cPath = String($server_gateway.environment.get("requestURI"));
+			var cPath = String($server_global.getCurrentThread().environment.get("requestURI"));
 			if (cPath.charAt(cPath.length-1) == "/") return cPath;
 			return String(cPath.substring(0, cPath.length - $server.requestScriptName.length))
 	  },
@@ -186,14 +187,14 @@ var $server={
 	Example:
 	> file:/usr/share/tomcat/webapps/myna/
 	*/
-	get rootDir(){return String($server_gateway.rootDir)},
+	get rootDir(){return String($server_global.rootDir)},
 /* property: rootUrl
 	URL Path representing the Myna root directory.
 	
 	Example:
 	> /myna/
 	*/	
-	get rootUrl(){return String($server_gateway.rootUrl)},
+	get rootUrl(){return String($server_global.rootUrl)},
 
 /* property: currentDir
 	<MynaPath> representing the directory of the currently executing script.
@@ -201,7 +202,7 @@ var $server={
 	Example:
 	> file:/usr/share/tomcat/webapps/myna/myna/administrator/views/
 	*/
-	get currentDir(){ return String($server_gateway.currentDir)},
+	get currentDir(){ return String($server_global.getCurrentThread().currentDir)},
 /* property: currentUrl
 	URL Path representing the directory of the currently executing script
 	
@@ -221,26 +222,26 @@ var $server={
 		This analogous to "window" in a browser environment.  
 	
 	*/
-	get globalScope(){return $server_gateway.threadScope},
+	get globalScope(){return $server_global.getCurrentThread().threadScope},
 
 /* property: servlet
 	Reference to the servlet object. 
 	*/		
-	get servlet(){return $server_gateway.environment.get("servlet")},
+	get servlet(){return $server_global.getCurrentThread().environment.get("servlet")},
 /* property: version
 	String representing the running version of Myna.
 	
 	Example:
 	> 	1.0_alpha_9
 	*/		
-	get version(){return String($server_gateway.version)},
+	get version(){return String($server_global.version)},
 /* property: scriptName
 	The name of the currently running script.
 	
 	Example:
 	> index.sjs
 	*/	
-	get scriptName(){ return String($server_gateway.scriptName)},
+	get scriptName(){ return String($server_global.getCurrentThread().scriptName)},
 /* property: tempDir
 	<MynaPath> of the JVM temp directory
 	
@@ -430,7 +431,7 @@ var $server={
 		<$server.set>, 
 	*/	
 	get:function(key,value){
-		var result = $server_gateway.serverVarMap.get(key)
+		var result = $server_global.serverVarMap[key]
 		//this.reParent(result)
 		return result
 	},
@@ -450,7 +451,7 @@ var $server={
 		<$server.get>, 
 	*/	
 	set:function(key,value){
-		$server_gateway.serverVarMap.put(key,value);
+		$server_global.serverVarMap[key] =value;
 		return value;
 	},
 /* Function: reParent

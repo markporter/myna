@@ -785,23 +785,16 @@
 	Object.prototype.toArray=function (includeFunctions,localOnly){
 		return ObjectLib.toArray(this,includeFunctions,localOnly)
 	}
-if ("$server_gateway" in this){
 
-	
-	
-	(function(){
-		var hide = function (o, p) {
-		 java.lang.Class.forName ("org.mozilla.javascript.ScriptableObject")
-			.getMethod("setAttributes", java.lang.String, java.lang.Integer.TYPE)
-			.invoke(o, p, new java.lang.Integer( 
-				org.mozilla.javascript.ScriptableObject.DONTENUM
-			)
-		 );
-		}
-		
-		for (var p in Object.prototype) hide(Object.prototype, p)
-		delete p;
-		delete hide;
-	})()
+
+if ("getOwnPropertyDescriptor" in Object){
+	//java.lang.System.out.println("===========================================")
+	Object.keys(Object.prototype).forEach(function (k) {
+		//Myna.println("hiding key " + k);
+		//java.lang.System.out.println("hiding " + k)
+		var d =Object.getOwnPropertyDescriptor( Object.prototype, k)
+		d.enumerable = false;
+		Object.defineProperty(Object.prototype, k, d)	
+	})
+
 }
-

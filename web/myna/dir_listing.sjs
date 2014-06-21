@@ -86,8 +86,8 @@ if (
 					<td><a href="<%=url%>"><%=fileName%></a></td>
 					<td><%=row.type%></td>
 					<td><%=Math.ceil(row.size/1024)%>k</td>
-					<td><%=row.lastModified.dateFormat("m/d/Y H:i:s")%></td>
-					<td><%=Date.formatInterval(new Date().getTime() - row.lastModified.getTime()).listFirst()%></td>
+					<td><%=(row.lastModified||new Date()).dateFormat("m/d/Y H:i:s")%></td>
+					<td><%=Date.formatInterval(new Date().getTime() - (row.lastModified||new Date()).getTime()).listFirst()%></td>
 				</tr>
 			</@loop>
 		</table>

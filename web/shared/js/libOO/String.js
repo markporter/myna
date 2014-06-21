@@ -1824,7 +1824,8 @@ if ("$server_gateway" in this){
 		
 	*/
 	String.prototype.hashCode=function(){
-		return new java.lang.String(this).hashCode();	
+		return this.checksum()
+		//return new java.lang.String(this).hashCode();	
 	}
 /* Function: hashEquals 
 		Returns true if the plaintext password matches the encrypted password 

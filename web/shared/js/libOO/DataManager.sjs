@@ -2140,7 +2140,7 @@ if (!Myna) var Myna={}
 			
 			
 			if (
-				!managerClasses[tableName]
+				!managerClasses[tableName+"_manager"]
 				|| staleClassFile 
 			) {
 				if (!staleClassFile){//now check for DDL changes
@@ -2162,7 +2162,7 @@ if (!Myna) var Myna={}
 					
 					if (managerClasses[tableName+"_manager"].signature != signature){
 						staleClassFile =true;
-						Myna.printConsole(tkey +" failed DDL check")
+						//Myna.printConsole(tkey +" failed DDL check")
 					}
 				}
 				if(staleClassFile){
@@ -2180,9 +2180,13 @@ if (!Myna) var Myna={}
 				}
 				if (!(tableName+"_manager" in managerClasses)){
 					//Myna.printConsole(tkey +" loading for stale file check")
+					
 					Myna.include(classFile,managerClasses);
 				}
 			}
+
+			
+			
 			var manager =this._managers[tkey]= new managerClasses[tableName+"_manager"]();
 			
 			manager.alias=alias;

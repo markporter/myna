@@ -292,6 +292,7 @@
 		
 		
 */
+
 var $application={
 	/* Property: appname
 		String application name. 
@@ -611,7 +612,7 @@ var $application={
 		Myna.lock($application.appname +"_get",10,function(){
 			var data = cache.get($application.appName);
 			if (!data){
-				data ={};	
+				data =new java.util.Hashtable();	
 			}
 			
 			data[key] = value;
@@ -665,7 +666,7 @@ var $application={
 			if (!cache.get(this.appName)){
 				var attr = new Packages.org.apache.jcs.engine.ElementAttributes();
 				attr.setIdleTime(60*this.idleMinutes);
-				cache.put(this.appName,{},attr);
+				cache.put(this.appName,new java.util.Hashtable(),attr);
 				this.onApplicationStart();	
 				
 			} 
@@ -676,7 +677,7 @@ var $application={
 	_initScopes:function(firstPass){
 		$profiler.mark("Runtime scripts included");
 		$profiler.begin("Process Scopes");
-		$server_gateway.runtimeStats.put("currentTask","built-in onRequestStart");
+		$server_gateway.runtimeStats.currentTask = "built-in onRequestStart";
 		var pThread=$server_gateway.environment.get("threadParent")
 		if (pThread){
 			//Myna.log("debug","setting id " +pThread.threadScope.$cookie.__AUTH_USER_ID__,Myna.dump(pThread.threadScope.$cookie));
@@ -685,7 +686,7 @@ var $application={
 		}
 		if ($server.request){
 			// load request
-				$server_gateway.runtimeStats.put("currentTask","buildRequest");
+				$server_gateway.runtimeStats.currentTask = "buildRequest";
 				$req.data={}
 				$req.paramNames=[];
 				//process URL-MAP
@@ -716,7 +717,7 @@ var $application={
 				
 				
 				//process uploads if necessary
-					$server_gateway.runtimeStats.put("currentTask","processUploads");
+					$server_gateway.runtimeStats.currentTask = "processUploads";
 					
 					var fileupload =Packages.org.apache.commons.fileupload; 
 					if (fileupload.servlet.ServletFileUpload.isMultipartContent($server.request)){
@@ -987,7 +988,7 @@ var $application={
 		
 			$server_gateway.currentDir=originalCurrentDir;
 			//refresh app entry after start
-			$server_gateway.applications.put($application.directory,$application);
+			$server_global.applications[$application.directory] =$application;
 			Myna.Permissions.addApp($application);
 		} catch(e){
 			$application._onError(e);
@@ -1126,7 +1127,7 @@ var $application={
 		}
 		
 		$profiler.mark("Request completed");
-		if ($server_gateway.generalProperties.getProperty("append_profiler_output") == "1"){
+		if (Packages.info.emptybrain.myna.MynaThread.generalProperties.getProperty("append_profiler_output") == "1"){
 			try{
 				var raw = $profiler.getSummaryHtml()
 				$profiler.calcAverages();
@@ -1402,7 +1403,7 @@ var $application={
 				if (!cache.get($application.appname)){
 					var attr = new Packages.org.apache.jcs.engine.ElementAttributes();
 					attr.setIdleTime(60*this.idleMinutes);
-					cache.put(this.appName,{},attr);
+					cache.put(this.appName,new java.util.Hashtable(),attr);
 					this._onApplicationStart();	
 					
 				}

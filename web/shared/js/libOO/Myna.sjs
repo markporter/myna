@@ -35,7 +35,7 @@ if (!Myna) var Myna={}
 		} else if (label != undefined){
 			this.print("<hr>" +label);
 		}
-		if ($req) $req.handled=true;
+		if ($server_global.getCurrentThread().threadScope.$req) $server_global.getCurrentThread().threadScope.$req.handled=true;
 		throw new Error("___MYNA_ABORT___");
 	}
 	
@@ -132,10 +132,10 @@ if (!Myna) var Myna={}
 	*/	
 	Myna.captureContent=function Myna_captureContent(func,scope){
 		if (!scope) scope = this;
-		var original = $res.clear();
+		var original = $server_global.getCurrentThread().threadScope.$res.clear();
 		func.call(scope)
-		var content = $res.clear();
-		$res.print(original)
+		var content = $server_global.getCurrentThread().threadScope.$res.clear();
+		$server_global.getCurrentThread().threadScope.$res.print(original)
 		return content;
 	}
 /* Function: createSyncFunction 
@@ -371,6 +371,7 @@ if (!Myna) var Myna={}
 							return prop != parseFloat(prop) && prop !="columns";
 						});
 						result+='<table class="query" border="0" cellspacing="0"><caption>DataSet</caption>';
+
 						for (x=0; x < keys.length; ++x) {
 						result+=	'<tr>'+
 							'<td class="dump_toggle_table_left"'+
@@ -559,7 +560,7 @@ if (!Myna) var Myna={}
 				break;
 				
 			}
-			} catch(e){ return e.toJson()}
+			} catch(e){ return JSON.stringify(e)}
 				
 			return result;
 		}
@@ -884,34 +885,68 @@ if (!Myna) var Myna={}
 		e - a caught exception  
  
 	*/
+
 	Myna.formatError=function Myna_formatError(e){
+		var result;
+		var NashornException = Packages.jdk.nashorn.api.scripting.NashornException
 		try{
+
+			function normalize(e){
+				var debug = Packages.jdk.nashorn.internal.runtime.Debug
+				
+				/*20..times(function (count) {
+					var caller = debug.stackTraceElementAt(count)	
+					Myna.println(caller);
+				})*/
+				if (e.nashornException){
+					result = e
+					
+					//Myna.printDump(NashornException.getScriptStackString(e.nashornException).split("\n"),"nashorn stack");
+					
+					result.lineNumber = e.nashornException.getLineNumber();
+					result.fileName = e.nashornException.getFileName();
+					result.message = e.nashornException.getMessage()||String(e);
+					
+					result.javaStack = Myna.parseJavaStack(e.nashornException)
+					
+				} else if (e instanceof java.lang.Exception){
+					result = {
+						javaStack:Myna.parseJavaStack(e)
+					}
+					result.message = e.getMessage()
+					
+
+					//Myna.printDump(result);
+
+				}
+				result.jsStack=Myna.parseJsStack(result.javaStack.join("\n"));
+
+				return result;
+			}
+			function parseJsStackLine(line){
+				var parts = line.match(/at (.*?):(\d+)/);
+				e.fileName = parts[1];
+				e.lineNumber = parts[2]; 
+				e.rootIndex=x+1;
+			}
 			/* if (e instanceof Packages.org.mozilla.javascript.RhinoException){ */
-			if (e.sourceName){
-				e = {rhinoException:e}	
-			}
+					
+			e= normalize(e);
 			
 			
-			if (e.rhinoException){
-				e.lineNumber = e.rhinoException.lineNumber();
-				e.fileName = e.rhinoException.sourceName();
-				e.message = e.rhinoException.details();
-			}
 			
 			e.rootIndex=0;
-			if ((e.rhinoException || e.stack) && !$server.isThread){
-				var stack =Myna.parseJsStack(e);
-				for (var x=0;x < stack.length;++x){
-					/* $server_gateway.currentDir + $server_gateway.scriptName */
-					if (String(stack[x]).indexOf("/shared/js/") ==-1 ){
-						var parts = stack[x].match(/at (.*?):(\d+)/);
-						e.fileName = parts[1];
-						e.lineNumber = parts[2]; 
-						e.rootIndex=x+1;
-						break;
-					} 
-				}	
-			} 
+			var stack =e.jsStack;
+			parseJsStackLine(e.jsStack[0])
+			
+			for (var x=0;x < stack.length;++x){
+				/* $server_global.getCurrentThread().currentDir + $server_global.getCurrentThread().scriptName */
+				if (String(stack[x]).indexOf("/shared/js/") ==-1 ){
+					parseJsStackLine(e.jsStack[x])
+					break;
+				} 
+			}	
+
 			
 			var errorTpl = new Myna.XTemplate(
 				'<div class="myna_error_div">',
@@ -983,13 +1018,7 @@ if (!Myna) var Myna={}
 						'</tpl>',
 						'</pre>',
 					'</td></tr>',
-					'<tr><th >Memory Context:</th><td>',
-						'<pre>',
-						'<tpl for="scriptLines">',
-							'<div class="{[ parent.lineNumber == values.originalIndex? "error_line":"" ]}">{lineNumber}: {lineText}</div>',
-						'</tpl>',
-						'</pre>',
-					'</td></tr>',
+					
 					'<tr><th >Java Stacktrace:</th><td>',
 						'<tpl for="javaStack">',
 							'<div >{.}</div>',
@@ -1007,7 +1036,8 @@ if (!Myna) var Myna={}
 			)
 			
 			if (e.fileName !== undefined && e.lineNumber !== undefined && e.message !== undefined){
-				e.fileName = String(e.fileName).split(/#/)[0];
+				//e.fileName = String(e.fileName);
+				
 				var lines ;
 				var startNum = Math.max(0,parseInt(e.lineNumber) -10)
 				try{
@@ -1015,6 +1045,7 @@ if (!Myna) var Myna={}
 						startNum,
 						parseInt(e.lineNumber) +10
 					).map(function(element,index){
+
 						return {
 							lineNumber:startNum +index,
 							lineText:element.escapeHtml()+"\n"
@@ -1034,7 +1065,7 @@ if (!Myna) var Myna={}
 					jsStack:["unavailable"],
 					javaStack:["unavailable"],
 					rootIndex:e.rootIndex,
-					req: Myna.dump($req.data,"Request Data",10),
+					req: Myna.dump($server_global.getCurrentThread().threadScope.$req.data,"Request Data",10),
 					lines:lines,
 					serverUrl:$server.serverUrl,
 					instance_id:$server.instance_id,
@@ -1042,7 +1073,7 @@ if (!Myna) var Myna={}
 					hostname:$server.hostName,
 					remoteAddr:$server.remoteAddr,
 					purpose:$server.purpose,
-					scriptLines:String($server_gateway.currentScript).split(/\n/)
+					scriptLines:String($server_global.getCurrentThread().currentScript).split(/\n/)
 						.map(function(element,index){
 							return {
 								lineNumber:index+1,
@@ -1053,8 +1084,8 @@ if (!Myna) var Myna={}
 							return e.lineNumber -10 < element.lineNumber && element.lineNumber < e.lineNumber +10; 
 						})
 				}
-					data.jsStack=(e.rhinoException || e.stack)?Myna.parseJsStack(e):Myna.dump(e);
-					data.javaStack=e.rhinoException?Myna.parseJavaStack(e,"&nbsp;".repeat(5)):["unavailable"];	
+					data.jsStack=e.jsStack;
+					data.javaStack=e.javaStack;	
 				if (e.query){
 					data.query = Myna.dump(e.query)	
 				}	
@@ -1062,20 +1093,35 @@ if (!Myna) var Myna={}
 					content:standardTpl.apply(data)
 				})
 			} else {
-				return errorTpl.apply({content:Myna.dump(e)})
+				return errorTpl.apply({content:Myna.dump(e,"Unknown Error Type")})
 			}
 		} catch (ne){
-			var result =String(e) +Myna.dump(Myna.JavaUtils.beanToObject(e)); 
 			Myna.log("Error",
 					"Error formating error",
 					"Original error:<br>" + result +"<br>Formatting error:<br>" 
-					+String(ne)+Myna.dump(Myna.JavaUtils.beanToObject(ne) + Myna.formatError(ne))
+					+String(ne)
+					+Myna.dump(Myna.JavaUtils.beanToObject(ne.nashornException||ne))	
+					//+ Myna.formatError(ne)
 			)
-			return result	;
+			$server_global.getCurrentThread().handleError(ne.nashornException||ne);
+
+			return result;
 		}
 		
 	}
+	Myna.formatError2=function Myna_formatError(e){
+		return <<END
+			<pre>
+			${e}
+			{message}
+			Line:{line}
+			Col:{column}
+			Stack:{stack}
+			</pre>
+		END.format(e)
 
+
+	}
 /* Function: freeMemory 
 	attempts to free the specified amount of memory within the timeout, returning 
 	true if successful.
@@ -1140,7 +1186,8 @@ if (!Myna) var Myna={}
 	 
 	*/
 	Myna.getGeneralProperties=function Myna_getGeneralProperties(){
-		return Myna.mapToObject($server_gateway.generalProperties)
+
+		return Myna.mapToObject(Packages.info.emptybrain.myna.MynaThread.generalProperties)
 	}
 
 	
@@ -1184,43 +1231,46 @@ if (!Myna) var Myna={}
 	*/
 	Myna.include=function Myna_include(path,scope){
 		var file =new Myna.File(path); 
-		var isCommandline = $server_gateway.environment.get("isCommandline")
-		if (typeof $profiler !== "undefined") $profiler.begin("Include " + path);
+		var isCommandline = $server_global.getCurrentThread().environment.get("isCommandline")
+		if (typeof $server_global.getCurrentThread().threadScope.$profiler !== "undefined") $server_global.getCurrentThread().threadScope.$profiler.begin("Include " + path);
 		var content =file.readString();
 		if (isCommandline) {
 			content = content.replace(/^#/,"//#");	
 		}
 		
-		if (/\.ejs$/.test(path)){
+		/*if (/\.ejs$/.test(path)){
 			content = "<"+"%try{%" +">" + content 
-				+"<" +"%\n} catch(e) {if (__exception__ && !e.rhinoException) e.rhinoException=__exception__;if($application && $application._onError) {$application._onError(e)} else{throw(e)}}%" +">";
+				+"<" +"%\n} catch(e) {if($server_global.getCurrentThread().threadScope.$application && $server_global.getCurrentThread().threadScope.$application._onError) {$server_global.getCurrentThread().threadScope.$application._onError(e)} else{throw(e)}}%" +">";
 		} else if (/\.s?js$/.test(path) || scope || isCommandline){
 			content = "try{" + content 
-				+"\n} catch(e) {if (__exception__ && !e.rhinoException) e.rhinoException=__exception__; if($application && $application._onError) {$application._onError(e)} else{throw(e)}}";
+				+"\n} catch(e) {if($server_global.getCurrentThread().threadScope.$application && $server_global.getCurrentThread().threadScope.$application._onError) {$server_global.getCurrentThread().threadScope.$application._onError(e)} else{throw(e)}}";
 		} else {
 			throw new Error("Cannot include '"+path+"'. include() can only be called with .js .sjs or .ejs files")	
-		}
+		}*/
 		content +="\n";
 		
-		var originalDir = $server_gateway.currentDir;
-		var originalScriptName = $server_gateway.scriptName;
+		var originalDir = $server_global.getCurrentThread().currentDir;
+		var originalScriptName = $server_global.getCurrentThread().scriptName;
 		
 		var realPath = file.toString()
 		//Myna.printConsole("path = " + realPath +" currentDir = " + realPath.listBefore("/"))
-		$server_gateway.currentDir = realPath.listBefore("/") +"/";
-		$server_gateway.scriptName = realPath.listAfter("/")
+		$server_global.getCurrentThread().currentDir = realPath.listBefore("/") +"/";
+		$server_global.getCurrentThread().scriptName = realPath.listAfter("/")
 		
 		if (scope){
-			$server_gateway.executeJsString(scope,content,path);
+			$server_global.getCurrentThread().include(path,scope);
+			//$server_global.getCurrentThread().executeJsString(scope,content,path);
 		} else {
-			scope=$server_gateway.threadScope
-			$server_gateway.executeJsString(scope,content,path);
+			$server_global.getCurrentThread().include(path);
+			scope=$server_global.getCurrentThread().threadScope
+			//Myna.printConsole(Myna.dumpText(scope));
+			//$server_global.getCurrentThread().executeJsString(scope,content,path);
 		} 
 		
-		$server_gateway.currentDir = originalDir ;
-		$server_gateway.scriptName = originalScriptName;
+		$server_global.getCurrentThread().currentDir = originalDir ;
+		$server_global.getCurrentThread().scriptName = originalScriptName;
 		
-		if (typeof $profiler !== "undefined") $profiler.end("Include " + path);
+		if (typeof $server_global.getCurrentThread().threadScope.$profiler !== "undefined") $server_global.getCurrentThread().threadScope.$profiler.end("Include " + path);
 		return scope;
 	}
 /* Function: includeDirectory 
@@ -1242,7 +1292,7 @@ if (!Myna) var Myna={}
 		
 	*/
 	Myna.includeDirectory=function Myna_includeDirectory(path,scope){
-		scope = scope||$server_gateway.threadScope;
+		scope = scope||$server_global.getCurrentThread().threadScope;
 		var dir = new Myna.File(path);
 		if (!dir.isDirectory()) throw new Error("'" + dir + "' is not a directory");
 		dir.listFiles("sjs").forEach(function(file){
@@ -1270,7 +1320,7 @@ if (!Myna) var Myna={}
 		
 	*/
 	Myna.includeDirectoryOnce=function Myna_includeDirectory(path,scope){
-		scope = scope||$server_gateway.threadScope;
+		scope = scope||$server_global.getCurrentThread().threadScope;
 		var dir = new Myna.File(path);
 		if (!dir.isDirectory()) throw new Error("'" + dir + "' is not a directory");
 		dir.listFiles("sjs").forEach(function(file){
@@ -1302,10 +1352,10 @@ if (!Myna) var Myna={}
 			Myna.log("debug","starting "+path);	
 		}
 		var file =new Myna.File(path); 
-		if (typeof $profiler !== "undefined") $profiler.begin("Include " + path);
+		if (typeof $server_global.getCurrentThread().threadScope.$profiler !== "undefined") $server_global.getCurrentThread().threadScope.$profiler.begin("Include " + path);
 		//var code =file.readString();
-		var code =String($server_gateway.translateString(file.readString(),file.toString()));
-		code = "try{" + code  +"} catch(e) {if (__exception__ && !e.rhinoException) e.rhinoException=__exception__; if($application && $application._onError) {$application._onError(e)} else{throw(e)}}";
+		var code =String($server_global.getCurrentThread().translateString(file.readString(),file.toString()));
+		code = "try{" + code  +"} catch(e) {if (__exception__ && !e.rhinoException) e.rhinoException=__exception__; if($server_global.getCurrentThread().threadScope.$application && $server_global.getCurrentThread().threadScope.$application._onError) {$server_global.getCurrentThread().threadScope.$application._onError(e)} else{throw(e)}}";
 		code +="\n";
 		var f =function(){
 			eval(code);
@@ -1315,7 +1365,7 @@ if (!Myna) var Myna={}
 		} else {
 			f.apply();	
 		}
-		if (typeof $profiler !== "undefined") $profiler.end("Include " + path);
+		if (typeof $server_global.getCurrentThread().threadScope.$profiler !== "undefined") $server_global.getCurrentThread().threadScope.$profiler.end("Include " + path);
 	} */
 /* Function: includeOnce   
 	Includes a text file or executes a .js, .sjs, or .ejs file in the current thread, if that path has not already been loaded. 
@@ -1338,7 +1388,7 @@ if (!Myna) var Myna={}
 	*/
 	Myna.includeOnce=function Myna_includeOnce(path,scope){
 		var file =new Myna.File(path); 
-		if ($server_gateway.uniqueIncludes_.add(file.toString())){
+		if ($server_global.getCurrentThread().uniqueIncludes_.add(file.toString())){
 			return Myna.include(path,scope);
 		} else return scope;
 	}
@@ -1363,7 +1413,7 @@ if (!Myna) var Myna={}
 	*/	
 	Myna.includeContent=function Myna_includeContent(path,scope,cacheOptions){
 		
-		var oldContent = $res.clear();
+		var oldContent = $server_global.getCurrentThread().threadScope.$res.clear();
 		if (cacheOptions){
 			cacheOptions.code = function(path,scope){
 				Myna.include(path,scope);
@@ -1373,7 +1423,7 @@ if (!Myna) var Myna={}
 			Myna.include(path,scope);	
 		}
 		
-		var newContent = $res.clear();
+		var newContent = $server_global.getCurrentThread().threadScope.$res.clear();
 		this.print(oldContent);
 		return newContent;
 			
@@ -1404,12 +1454,12 @@ if (!Myna) var Myna={}
 	*/
 	Myna.includeTemplate=function Myna_includeTemplate(path,values){
 		if (!values) values = {};
-		$profiler.begin("Including template " + path);
+		$server_global.getCurrentThread().threadScope.$profiler.begin("Including template " + path);
 		var template = new Myna.XTemplate(new Myna.File(path).readString())
 		
 		this.print(template.apply(values))
 		
-		$profiler.end("Including template " + path);
+		$server_global.getCurrentThread().threadScope.$profiler.end("Including template " + path);
 	}
 
 /* Function: loadProperties 
@@ -1452,7 +1502,7 @@ if (!Myna) var Myna={}
 	Myna.loadAppProperties=function Myna_loadProperties(filepath){
 		var result= {}
 		
-		var text = $server_gateway.translateString(new Myna.File(filepath).readString(),filepath);
+		var text = $server_global.getCurrentThread().translateString(new Myna.File(filepath).readString(),filepath);
 		result = eval("("+text+")");
 		
 		return result;
@@ -1494,20 +1544,20 @@ if (!Myna) var Myna={}
 	*/
 	Myna.lock=function Myna_getLock(name, timeout, func){
 		try{
-			var lock = $server_gateway.locks.get(name);
+			var lock = Packages.info.emptybrain.myna.MynaThread.locks.get(name);
 			if (!lock) {
-				$server_gateway.manageLocksPermit.acquire();
-				lock = $server_gateway.locks.get(name);
+				Packages.info.emptybrain.myna.MynaThread.manageLocksPermit.acquire();
+				lock = Packages.info.emptybrain.myna.MynaThread.locks.get(name);
 				if (!lock) {
 					var FIFOSemaphore = Packages.EDU.oswego.cs.dl.util.concurrent.FIFOSemaphore;
 					lock = new FIFOSemaphore(1);
-					$server_gateway.locks.put(name,lock);
+					Packages.info.emptybrain.myna.MynaThread.locks.put(name,lock);
 				}
-				$server_gateway.manageLocksPermit.release();
+				Packages.info.emptybrain.myna.MynaThread.manageLocksPermit.release();
 			}
 			
 			if (lock.attempt(timeout*1000)){
-				/* $application.addOpenObject({
+				/* $server_global.getCurrentThread().threadScope.$application.addOpenObject({
 					close:function(){
 						lock.release()
 					},
@@ -1522,7 +1572,7 @@ if (!Myna) var Myna={}
 			} else return false;
 			
 		} finally {
-			$server_gateway.manageLocksPermit.release();	
+			Packages.info.emptybrain.myna.MynaThread.manageLocksPermit.release();	
 		}
 	}
 /* Function *disabled* clusterLock 
@@ -1575,7 +1625,7 @@ if (!Myna) var Myna={}
 						forced upper case
 		label		-	As short single-line text description of the log
 		detail		-	*Optional, default null* an HTML description of the log 
-		app_name	-	*Optional, default $application.appName* A short text 
+		app_name	-	*Optional, default $server_global.getCurrentThread().threadScope.$application.appName* A short text 
 						value representing the application that generated the 
 						log.  This value is forced lower case
 		sync		-	*Optional, default false* 
@@ -1607,25 +1657,39 @@ if (!Myna) var Myna={}
 		
 	 
 	*/
+	
+	Myna.getLogger =function getLogger() {
+
+		var logger=Myna.include(
+			new Myna.File(
+				"/shared/js/libOO/loggers",
+				$server.properties.log_engine +".sjs"
+			),
+			{}
+		)
+		Myna.getLogger = function(){return logger}
+		return logger
+
+	}
 	Myna.log=function Myna_log(type,label,detail,app_name, sync){
 		var purpose = "UNKNOWN";
 		var now = new Date();
 		var log_elapsed = 0
 		if (typeof $server !="undefined"){
-			if (!$req.last_log_time) $req.last_log_time = now;
-			if (!$req.last_log_ordinal) $req.last_log_ordinal = 0;
-			log_elapsed = now.getTime() - $req.last_log_time.getTime();
+			if (!$server_global.getCurrentThread().threadScope.$req.last_log_time) $server_global.getCurrentThread().threadScope.$req.last_log_time = now;
+			if (!$server_global.getCurrentThread().threadScope.$req.last_log_ordinal) $server_global.getCurrentThread().threadScope.$req.last_log_ordinal = 0;
+			log_elapsed = now.getTime() - $server_global.getCurrentThread().threadScope.$req.last_log_time.getTime();
 			
-			$req.last_log_time = now;
+			$server_global.getCurrentThread().threadScope.$req.last_log_time = now;
 			if (!app_name) {
-				if ($application && $application.appName){
-					app_name=$application.appName;
+				if ($server_global.getCurrentThread().threadScope.$application && $server_global.getCurrentThread().threadScope.$application.appName){
+					app_name=$server_global.getCurrentThread().threadScope.$application.appName;
 				}
 			}
 		}
 		if (!app_name) app_name="unknown"; 
 		
-		var req_elapsed = now.getTime() - $server_gateway.started.getTime();
+		var req_elapsed = now.getTime() - $server_global.getCurrentThread().started.getTime();
 				
 		
 		if (!label) label= "[ no label ]";
@@ -1636,29 +1700,25 @@ if (!Myna) var Myna={}
 			Myna.printConsole(
 				"Error: " + label,
 				detail.listBefore("-->").listAfter("<!--")
+
 			)
+			Error.dumpStack();
 		}
 		if (typeof $server != "undefined"){//} && !$server.isThread){
-			var reqId = $req.id;
+			var reqId = $server_global.getCurrentThread().threadScope.$req.id;
 			//String(java.lang.Thread.currentThread().getName().hashCode());
 			
 			var logFunction = function(reqId,type,label,detail,app_name,log_elapsed,req_elapsed,now){
-				$profiler.mark("LOG: " +label);
+				$server_global.getCurrentThread().threadScope.$profiler.mark("LOG: " +label);
 				//wait 30 seconds after server startup so we can maybe create the logging database
-				var elapsed = new Date().getTime() - $server_gateway.serverStarted.getTime();
-				if (elapsed < 30000){
+				var elapsed = new Date().getTime() - Packages.info.emptybrain.myna.MynaThread.serverStarted.getTime();
+				/*if (elapsed < 30000){
 					Myna.sleep(30000 - elapsed);
-				}
-				
-				var logger = Myna.include(
-					new Myna.File(
-						"/shared/js/libOO/loggers",
-						$server.properties.log_engine +".sjs"
-					),
-					{}
-				)
-				
-				try{
+				}*/
+
+				var logger = Myna.getLogger()
+
+				//try{
 					logger.log({
 						app_name:app_name,
 						detail:detail,
@@ -1673,14 +1733,13 @@ if (!Myna) var Myna={}
 						request_id:reqId,
 						type:type
 					})
-				} catch(e){
+				/*} catch(e){
+					Myna.printConsle(e,Array.parse(new java.lang.Throwable().getStackTrace()).join("\t\n"));
 					if (!/isAlive/.test(e.message)){
 						
 						java.lang.System.err.println("Error writing log: " + e.message);
-						/*java.lang.System.err.println("Error detail: " + Myna.formatError(e));
-						java.lang.System.err.println("log Label: " +label);
-						java.lang.System.err.println("log Detail: " +detail);*/
-						$server_gateway.writeLog(
+						
+						$server_global.getCurrentThread().writeLog(
 							type,
 							String(label).left(255),
 							detail,
@@ -1688,10 +1747,10 @@ if (!Myna) var Myna={}
 							String(java.lang.Thread.currentThread().getName().hashCode()),
 							req_elapsed,
 							log_elapsed,
-							now
+							new java.util.Date(now.getTime())
 						);
 					}
-				}
+				}*/
 			}
 			//if (sync){
 				logFunction(reqId,type,label,detail,app_name,log_elapsed,req_elapsed,now);
@@ -1701,7 +1760,7 @@ if (!Myna) var Myna={}
 			//}
 		 
 		} else {
-			$server_gateway.writeLog(
+			$server_global.getCurrentThread().writeLog(
 				type,
 				String(label).left(255),
 				detail,
@@ -1792,7 +1851,7 @@ if (!Myna) var Myna={}
 			if (e.rhinoException && !$server.isThread){
 				var stack = result.jsStack =Myna.parseJsStack(e);
 				for (var x=0;x < stack.length;++x){
-					/* $server_gateway.currentDir + $server_gateway.scriptName */
+					/* $server_global.getCurrentThread().currentDir + $server_global.getCurrentThread().scriptName */
 					if (String(stack[x]).indexOf("/shared/js/") ==-1 ){
 						var parts = stack[x].match(/at (.*?):(\d+)/);
 						result.file = parts[1];
@@ -1820,10 +1879,11 @@ if (!Myna) var Myna={}
 	 
 	*/
 	Myna.parseJavaStack=function Myna_parseJavaStack(e,spacer){
+		if (!spacer) spacer="    ";
 		var array = [];
         
         var dumpOne = function(exception, prefix) {
-            var t = exception.getStackTrace().map(function(e){
+            var t = Array.parse(exception.getStackTrace()).map(function(e){
                 return spacer+"at " + e;
             });
             var firstLine = String(exception);
@@ -1833,7 +1893,7 @@ if (!Myna) var Myna={}
             return t;
         }
         
-        var javaException = e.rhinoException;
+        var javaException = e;
         var prefix = "";
         while (javaException != null) {
             array = array.concat(dumpOne(javaException, prefix))
@@ -1872,43 +1932,27 @@ if (!Myna) var Myna={}
 		result by line
 	 
 	*/
-	Myna.parseJsStack=function Myna_parseJsStack(e){
+	Myna.parseJsStack=function Myna_parseJsStack(stack){
 		var 
 			originalTrace,
 			pw,
 			lines,
-			st,
-			stack = e.stack||""
+			st
 		;
 		
-		if (!e.stack && e.rhinoException){
-			stack = String(e.rhinoException.getScriptStackTrace())
-		}
-			
-			
-		st = stack
-			.split(/\n/).filter(function(e){
-				return e.length;
-			})
-		if (!st.length && "rhinoException" in e){
-			originalTrace = new java.io.StringWriter();
-			pw = new java.io.PrintWriter(originalTrace);
-			
-			e.rhinoException.printStackTrace(pw);
-			
-			lines = String(originalTrace).split(/\n/);
-			st = lines.filter(function(line){
-				return line.length && (
-					/\(file:.*:/.test(line)
-				);
-			}).map(function(line){
-				return line.replace(/.*\((.*)\).*/g,"at $1")
-			})	
-		}
+		
+		lines = String(stack).split(/\n/);
+		st = lines.filter(function(line){
+			return line.length && (
+				/\(file:.*:/.test(line)
+			);
+		}).map(function(line){
+			return line.replace(/.*\((.*)\).*/g,"at $1")
+		})	
 		return st;
 	}
 /* Function: print 
-	This is an alias for <$res.print>
+	This is an alias for <$server_global.getCurrentThread().threadScope.$res.print>
 	 
 	Parameters: 
 		string -  string to append to the output buffer
@@ -1918,11 +1962,12 @@ if (!Myna) var Myna={}
 	 
 	*/
 	Myna.print=function Myna_print(string){
-		var print ="res" in this?this.res.print:$res.print
+		java.lang.System.err.println($server_global.getCurrentThread().threadScope.$res);
+		var print ="res" in this?this.res.print:$server_global.getCurrentThread().threadScope.$res.print
 		print(String(string));
 	}
 /* Function: printDump
-	shortcut for $res.print(Myna.dump())
+	shortcut for $server_global.getCurrentThread().threadScope.$res.print(Myna.dump())
 	 
 	Parameters: 
 		obj			-	Object to dump
@@ -1937,6 +1982,8 @@ if (!Myna) var Myna={}
 	 
 	*/
 	Myna.printDump=function Myna_printDump(obj,label,maxDepth){
+		var caller = 'Called from ' + Myna.getCurrentLine(2)
+		this.println(caller);
 		if ($server.isCommandline){
 			this.println(Myna.dumpText(obj,label,maxDepth));
 		} else {
@@ -1961,6 +2008,47 @@ if (!Myna) var Myna={}
 			Myna.print(String(text) + "<br>\n");
 		}
 	}
+/* Function: getCurrentLine
+	returns the directory/file and line number of this line of code
+
+	parameters:
+		depth		-	*Optional, default 1*
+						Number of hops up the stack to look for the current line
+		
+
+	*/
+	Myna.getCurrentLine=function(depth,fullpath){
+		var debug = Packages.jdk.nashorn.internal.runtime.Debug
+		var caller = debug.stackTraceElementAt(depth||1)
+		//jdk.nashorn.internal.scripts.Script$test_sjs.runScript(file:/mnt/data/home/mark/myna_exp/build/test.sjs:5)
+		if (/\.Script\$/.test(caller)){
+			caller = caller.match(/\(.*[\/\\]([^\/\\]+[\/\\][^\/\\]+.*)\)/)[1]
+		}
+
+		return caller;
+	
+	}
+/* Function: getCurrentStack
+	returns the directory/file and line number of this line of code
+
+	parameters:
+		depth		-	*Optional, default 1*
+						Number of hops up the stack to remove before returning
+		
+
+	*/
+	Myna.getCurrentStack=function(depth,fullpath){
+
+		var debug = Packages.jdk.nashorn.internal.runtime.Debug
+		var caller = debug.stackTraceElementAt(depth||1)
+		//jdk.nashorn.internal.scripts.Script$test_sjs.runScript(file:/mnt/data/home/mark/myna_exp/build/test.sjs:5)
+		if (/\.Script\$/.test(caller)){
+			caller = caller.match(/\(.*[\/\\]([^\/\\]+[\/\\][^\/\\]+.*)\)/)[1]
+		}
+
+		return caller;
+	
+	}
 /* Function: printConsole
 	prints text to java.lang.System.out
 	
@@ -1972,13 +2060,18 @@ if (!Myna) var Myna={}
 	*/
 	Myna.printConsole=function(header,text){
 		var out = java.lang.System.out;
+		var caller = "[Called from " +Myna.getCurrentLine(2)+"] ";
+	
 		if (text !== undefined){
 			header = "[Myna/" + $server.instance_id+" "+ new Date().format("Y/m/d H:i:s") + "] - " + header +" "
 			out.println(header)
+			out.print("|-> ")
 		} else {
 			text = header	
+
 		}
-		out.println(String(text));
+		
+		out.println(caller +String(text));
 	}
 /* Function: sealObject 
 	This seals a JavaScript object, preventing it from being modified.
@@ -1990,7 +2083,7 @@ if (!Myna) var Myna={}
 	 
 	*/
 	Myna.sealObject=function Myna_sealObject(obj){
-		$server_gateway.sealObject(obj);
+		$server_global.getCurrentThread().sealObject(obj);
 	}	
 			
 /* Function: saveProperties 
@@ -2070,7 +2163,7 @@ if (!Myna) var Myna={}
 	Examples:
 	(code)
 		//simple objects
-		Myna.threadSafeSet($application,"settings",function(){
+		Myna.threadSafeSet($server_global.getCurrentThread().threadScope.$application,"settings",function(){
 			return Myna.include("app_settings.sjs",{})
 		})
 		
@@ -2253,8 +2346,8 @@ if (!Myna) var Myna={}
 		//Transform any page to a PDF (assuming it is valid XHTML)
 		//at the bottom of a page
 		...
-		if ($req.data.asPDF=="true"){
-			$res.printBinary(Myna.xmlToPdf($res.clear()),"application/pdf","WebPage.pdf");
+		if ($server_global.getCurrentThread().threadScope.$req.data.asPDF=="true"){
+			$server_global.getCurrentThread().threadScope.$res.printBinary(Myna.xmlToPdf($server_global.getCurrentThread().threadScope.$res.clear()),"application/pdf","WebPage.pdf");
 		}
 	(end)
 	

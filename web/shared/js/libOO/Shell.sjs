@@ -70,7 +70,9 @@ if (!Myna) var Myna={}
 		var e4j = Packages.expectj.ExpectJ(this.timeout);
 		if (/^ssh:\/\//.test(this.command)){
 			importPackage(com.jcraft.jsch)
-			var [dummy,user,host] = this.command.match(/ssh:\/\/(.*?)@(.*)/);
+
+			var parts = this.command.match(/ssh:\/\/(.*?)@(.*)/);
+			var user = parts[1], host = parts[2];
 			var jsch  = new JSch();
 			jsch.setConfig("StrictHostKeyChecking","no")
 			var homeDir = new Myna.File("file://" + java.lang.System.getProperty( "user.home" ))

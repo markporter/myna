@@ -371,7 +371,7 @@ Myna.Admin ={
 				driver:"org.h2.Driver"
 			},true);
 			if (result.success){
-				$server_gateway.loadDataSources();	
+				$server_globalloadDataSources();	
 			}
 			
 			return result;
@@ -393,7 +393,7 @@ Myna.Admin ={
 			
 		*/
 		getAll:function getDataSources(){
-			var dataSources =Myna.JavaUtils.mapToObject($server_gateway.dataSources);
+			var dataSources =Myna.JavaUtils.mapToObject(Packages.info.emptybrain.myna.MynaThread.dataSources);
 			return dataSources.getKeys().map(function(key){
 				return Myna.JavaUtils.mapToObject(dataSources[key])
 					.map(function(v){
@@ -407,7 +407,7 @@ Myna.Admin ={
 			
 		*/
 		getMap:function getDataSources(){
-			var dataSources =Myna.JavaUtils.mapToObject($server_gateway.dataSources);
+			var dataSources =Myna.JavaUtils.mapToObject(Packages.info.emptybrain.myna.MynaThread.dataSources);
 			return dataSources.map(function(value,key){
 				return Myna.JavaUtils.mapToObject(value)
 					.map(function(v){
@@ -426,7 +426,7 @@ Myna.Admin ={
 			var db;
 			var config = Myna.Admin.ds.getMap()[name]
 			try {
-				$server_gateway.loadDataSource(new Myna.File($server.rootDir + "WEB-INF/myna/ds/" + name + ".ds").javaFile,true);
+				$server_globalloadDataSource(new Myna.File($server.rootDir + "WEB-INF/myna/ds/" + name + ".ds").javaFile,true);
 				db =new Myna.Database(name);
 
 			} catch (e if (e.javaException instanceof java.lang.ClassNotFoundException)){
@@ -935,13 +935,13 @@ Myna.Admin ={
 						name of task to run, or null to reschedule all tasks
 		*/
 		scheduleNextRun:function scheduleNextRun(taskName) {
-			var tasks = $server_gateway.waitingCronTasks;
+			var tasks = $server_global.waitingCronTasks;
 			var taskID =this.nameToID(taskName||"all");
 			var gotlock =Myna.lock("MYNA_ADMIN:reload_cron",20,function(){
 				var removedTasks={}
 
 				//clear old schedules
-				tasks.toArray().forEach(function (cronTask) {
+				Array.parse(tasks.toArray()).forEach(function (cronTask) {
 					if (taskName && taskName != cronTask.name){
 						return
 					} 
@@ -976,7 +976,7 @@ Myna.Admin ={
 							
 							Myna.Admin.task.saveNextRun(cron.name,nextRunDate);
 							
-							$server_gateway.waitingCronTasks.offer(
+							$server_globalwaitingCronTasks.offer(
 								new Packages.info.emptybrain.myna.CronTask(
 									cron.name,
 									nextRunDate.getTime()
