@@ -9,7 +9,7 @@
 	"Template.sjs",
 	"Myna.sjs",
 	"KeyStore.sjs",
-	"DataSet.js",
+	//"DataSet.js",
 	"DataSet.sjs",
 	"Cache.sjs",
 	"JavaUtils.sjs",
@@ -38,13 +38,25 @@
 	
 	
 ].forEach(function(element){
-	try {
+	var compiled=true
+	var time = new Date().getTime();
+	var className = element.split(/\./)[0]
+	//try {
+		if (compiled){
+		var O = Packages.info.emptybrain.myna.libcache[className]
+		var scope ={}
+		$server_gateway.importPreCompiled(new O(),this)
+	} else {
+	
+		
 		var path = $server_gateway.getNormalizedPath(element);
 	
 		$server_gateway.includeOnce(path);
-	} catch(e){
+		//java.lang.System.err.println(className + ": " +(new Date().getTime() - time))
+	}
+	/*} catch(e){
 		java.lang.System.err.println("libOO.sjs Error: " +e)
 		$server_gateway.log("ERROR",String(e).left(100),Myna?Myna.formatError(e):String(e))
-	}
+	}*/
 });
 

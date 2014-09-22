@@ -1908,5 +1908,8 @@ public class MynaThread implements java.lang.Runnable{
 	public NativeJavaProxy proxyWrapJavaObject(Object javaObject, Class<?> staticType, org.mozilla.javascript.Function f){
 		return new NativeJavaProxy(this.threadScope, javaObject, staticType,f);
 	}
+	public void importPreCompiled(Script s, Scriptable scope){
+		s.exec(this.threadContext,scope);
+	}
 
 }
