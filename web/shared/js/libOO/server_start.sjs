@@ -1,3 +1,5 @@
+//hack for BAD SNI
+java.lang.System.setProperty("jsse.enableSNIExtension", "false");
 //only if not running from commandline
 $server_gateway.environment.put("threadName","Server Start Thread");
 if (!$server_gateway.environment.containsKey("isCommandline")){

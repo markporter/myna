@@ -8,34 +8,40 @@ if (!Myna) Myna={}
     Contructs a new Ldap connection
    
     Parameters:
-        server          		-	*REQUIRED* Server and initial subtree to connect to.
-                        		 		> ldap://server.yourdomain.com:389/o=top,ou=people
-                        		 		> ldaps://server.yourdomain.com:636/o=top,ou=people
-        username        		-	Optional default null* 
-        							Fully qualified username to log in as
-                        		 		> cn=name,ou=department,o=ldap_root
-        password        		-	*Optional default null* 
-        							password for user
-        acceptSelfSignedCerts	-	*Optional default true* 
-        							By default secure ldap connections will 
-        							accept self-signed certs. Set this to false 
-        							to throw an exception. 
+        server                  -   *REQUIRED* Server and initial subtree to connect to.
+                                        > ldap://server.yourdomain.com:389/o=top,ou=people
+                                        > ldaps://server.yourdomain.com:636/o=top,ou=people
+        username                -   Optional default null* 
+                                    Fully qualified username to log in as
+                                        > cn=name,ou=department,o=ldap_root
+                                        > mporter@health
+        password                -   *Optional default null* 
+                                    password for user
+        acceptSelfSignedCerts   -   *Optional default true* 
+                                    By default secure ldap connections will 
+                                    accept self-signed certs. Set this to false 
+                                    to throw an exception. 
+
+    Notes:
+    If an AD style username is used (username@domain) then Active Directory paging mode is enabled. 
+    This means that searches will be performed continuously over all pages until all results are gathered
     */
     Myna.Ldap = function(server,username,password,acceptSelfSignedCerts){
-    	if (acceptSelfSignedCerts === undefined) acceptSelfSignedCerts=true;
+        if (acceptSelfSignedCerts === undefined) acceptSelfSignedCerts=true;
         this.server = server;
         this.user = username;
         this.password = password;
         
         var Context = Packages.javax.naming.Context;
         var directory = Packages.javax.naming.directory;
+        var namingLdap = Packages.javax.naming.ldap
        
         var env = new java.util.Hashtable();
         //env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
         env.put(Context.PROVIDER_URL, this.server);
         if (acceptSelfSignedCerts && /^ldaps/i.test(server)){
-			env.put("java.naming.ldap.factory.socket", "info.emptybrain.myna.AcceptAllSSLSocketFactory");
-		}
+            env.put("java.naming.ldap.factory.socket", "info.emptybrain.myna.AcceptAllSSLSocketFactory");
+        }
        
         
         env.put(Context.REFERRAL, "follow");
@@ -51,7 +57,14 @@ if (!Myna) Myna={}
         // Create the initial context
         //var ctx = new directory.InitialDirContext(env);
         this.ctx = new Packages.com.sun.jndi.ldap.LdapCtxFactory.getLdapCtxInstance(this.server,env);
-		  $application.addOpenObject(this.ctx);
+        $application.addOpenObject(this.ctx);
+        if (/@/.test(username)){
+            this.isAD = true
+            this.pageSize=100
+            var ctls = Myna.JavaUtils.createClassArray("javax.naming.ldap.Control",1)
+            ctls[0]=new namingLdap.PagedResultsControl(1000, namingLdap.Control.CRITICAL);
+            this.ctx.setRequestControls(ctls);
+        }
         this.env = env
     }
    
@@ -82,9 +95,9 @@ if (!Myna) Myna={}
         (end)
      
     */
-    Myna.Ldap.prototype.search=function(searchString,attributes){
+    Myna.Ldap.prototype.search=function(searchString,attributes,maxRows){
         if (!attributes || !attributes.length) attributes =null
-   
+        maxRows = maxRows||2147483647
        
         if (typeof attributes == "string"){
             attributes = attributes.split(/,/);
@@ -92,35 +105,64 @@ if (!Myna) Myna={}
        
         var Context = Packages.javax.naming.Context;
         var directory = Packages.javax.naming.directory;
+        var namingLdap = Packages.javax.naming.ldap
         var ctx = this.ctx;
         var env = this.env;
         var ctls = new directory.SearchControls();
         ctls.setReturningAttributes(attributes);
         ctls.setSearchScope(directory.SearchControls.SUBTREE_SCOPE);
        
-        var namingEnum = ctx.search("", searchString, ctls);
+        
        
         var result=[];
-   
-        while (namingEnum.hasMoreElements()){
-            var curObj = namingEnum.next();
-           
-            result.push({
-                name:String(curObj.getName()),
-                attributes:function(curObj){
-                    var attributesArray=Myna.enumToArray(curObj.getAll());
-                    var attributesObject ={}
-                    for (var x = 0; x < attributesArray.length; ++x ){
-                        var array = Myna.enumToArray(attributesArray[x].getAll());
-                       
-                        attributesObject[attributesArray[x].getID()] = array.map(function(element){
-                            return String(element);
-                        });
-                    }
-                    return attributesObject;
-                }(curObj.getAttributes())
-            })   
+        var cookie;
+        function importResults() {
+            var namingEnum = ctx.search("", searchString, ctls);
+            while (namingEnum.hasMoreElements()){
+                var curObj = namingEnum.next();
+                if (result.length <= maxRows){
+                    result.push({
+                        name:String(curObj.getName()),
+                        attributes:function(curObj){
+                            var attributesArray=Myna.enumToArray(curObj.getAll());
+                            var attributesObject ={}
+                            for (var x = 0; x < attributesArray.length; ++x ){
+                                var array = Myna.enumToArray(attributesArray[x].getAll());
+                               
+                                attributesObject[attributesArray[x].getID()] = array.map(function(element){
+                                    return String(element);
+                                });
+                            }
+                            return attributesObject;
+                        }(curObj.getAttributes())
+                    })   
+                }
+            }    
         }
+        var quit=false
+        importResults()
+        if (this.isAD){
+            do {
+                if (result.length == maxRows) return result
+                // examine the response controls
+                ctx.getResponseControls().toArray().filter(function (tuple) {
+                    var control = tuple.value
+                    //Myna.printDump(control);
+                    cookie = control.getCookie()
+                    //Myna.printConsole(control.getResultSize());
+                    //Myna.printConsole(control.getCookie());
+                    
+                })
+
+                // pass the cookie back to the server for the next page
+                requestControls = Myna.JavaUtils.createClassArray("javax.naming.ldap.Control",1)
+                requestControls[0]=new namingLdap.PagedResultsControl(1000, cookie, namingLdap.Control.CRITICAL);
+                this.ctx.setRequestControls(requestControls);
+                importResults()
+           } while ((cookie !== null) && (cookie.length != 0));
+
+        }
+
         return result;
     }
 
