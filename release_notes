@@ -1,3 +1,11 @@
+Release Name: 1.11.3
+============================
+Notes: 
+
+* **[FIX]**         error in Date.js in browsers that don't support destructuing assignments
+* **[FIX]**         Fixed weird UTF8* error in postgress when SQL string contains NULL characters
+
+----------------------------------------------------------
 Release Name: 1.11.2
 ============================
 Notes: Minor feature update
