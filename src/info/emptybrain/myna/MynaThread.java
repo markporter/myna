@@ -582,7 +582,7 @@ public class MynaThread implements java.lang.Runnable{
 	
 	public  Scriptable createSharedScope() throws Exception{
 		long startTime = System.currentTimeMillis();
-		boolean recreateScope = Integer.parseInt(this.generalProperties.getProperty("optimization.level")) == -1;
+		boolean recreateScope = true;//Integer.parseInt(this.generalProperties.getProperty("optimization.level")) == -1;
 		try{
 			if (!recreateScope
 					&& MynaThread.sharedScope_ != null)
@@ -673,10 +673,10 @@ public class MynaThread implements java.lang.Runnable{
 				if (!existingObjects.contains(ids[x])){
 					try{
 						ScriptableObject lib =(ScriptableObject) sharedScope.get(ids[x].toString(),sharedScope);
-						lib.sealObject();
+						//lib.sealObject();
 						try{
 							ScriptableObject proto =(ScriptableObject) lib.get("prototype",lib);
-							proto.sealObject();
+							//proto.sealObject();
 						}catch(Exception e){}// seal what we can
 						
 					}catch(Exception e){}// seal what we can
@@ -764,10 +764,10 @@ public class MynaThread implements java.lang.Runnable{
 				if (!existingObjects.contains(ids[x])){
 					try{
 						ScriptableObject lib =(ScriptableObject) sharedScope.get(ids[x].toString(),sharedScope);
-						lib.sealObject();
+						//lib.sealObject();
 						try{
 							ScriptableObject proto =(ScriptableObject) lib.get("prototype",lib);
-							proto.sealObject();
+							//proto.sealObject();
 						}catch(Exception e){}// seal what we can
 						
 					}catch(Exception e){}// seal what we can
@@ -1152,14 +1152,6 @@ public class MynaThread implements java.lang.Runnable{
 			this.currentScript = script;
 			
 			if (compiled == null){
-				/* reference to original lexer/parser, just in case the new one becomes problematic */
-					/* script = parseEmbeddedJsBlocks(script);
-					if (scriptPath.matches(".*.ejs")) {
-						script = parseEmbeddedJs(script);
-					} */ 
-					
-				
-				  
 				compiled = cx.compileString(script, scriptPath, 1, null);
 				cache.put(key,compiled);
 			}
