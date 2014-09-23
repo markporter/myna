@@ -84,17 +84,17 @@ var runtimeLibs=[
 	"Admin.sjs",
 	"Shell.sjs"
 ]
-
+String.prototype.titleCap=function(){
+	return this.split(/ /).map(function(text){
+		if (text.length){
+			text=text.substr(0,1).toUpperCase() + text.substr(1).toLowerCase();
+		}
+		return text;
+	}).join(" ");
+};
 if ($server_gateway.isInitThread && !$server_gateway.environment.containsKey("isCommandline")){
 //if ($server_gateway.isInitThread){
-	String.prototype.titleCap=function(){
-		return this.split(/ /).map(function(text){
-			if (text.length){
-				text=text.substr(0,1).toUpperCase() + text.substr(1).toLowerCase();
-			}
-			return text;
-		}).join(" ");
-	};
+	
 	//set up compiler
 		var ClassCompiler =org.mozilla.javascript.optimizer.ClassCompiler;
 		var CompilerEnvirons =org.mozilla.javascript.CompilerEnvirons;
@@ -150,7 +150,7 @@ if ($server_gateway.isInitThread && !$server_gateway.environment.containsKey("is
 runtimeLibs.forEach(function(element){
 	var compiled=true
 	var time = new Date().getTime();
-	var className = element.split(/\./)[0]
+	var className = element.split(/\./)[0].titleCap()
 
 	//try {
 	if (compiled){
