@@ -97,6 +97,11 @@
 		
 	},
 	onRequestStart:function(){ // run directly before requested file
+		Myna.printConsole("testing "  + $server.requestUrl + " against : " + $application.url + "/static");
+		if (new RegExp(("^" +$application.url + "/static").replace(/\/\//g,"/")).test($server.requestUrl)) {
+			Myna.printConsole("matched");
+        	return;//
+        }
 		/* Example of changing ds based on server purpose */
 		/*
 		
