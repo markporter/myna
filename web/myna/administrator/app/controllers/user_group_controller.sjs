@@ -192,4 +192,11 @@
 			group:group.data
 		}
 	}
+/* ---------- syncGroups ------------------------------------------- */
+	function syncGroups(params){
+		Myna.include("/shared/js/cron/myna_import_auth_groups.sjs")
 
+		return {
+			success:true
+		}
+	}

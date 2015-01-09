@@ -248,9 +248,10 @@ if (!Myna) var Myna={}
 								"options" below
 								
 			Options:
-				name				-	Name of the user group. Can be any string, but 
+				name			-	Name of the user group. Can be any string, but 
 										should be short
 				appname			-	appname of application associated with this right
+				auth_type		-	auth_type of this group, if imported from an external authentication source
 				
 				description		-	*Optional, default ""*
 										A description of types of users that 
@@ -275,6 +276,7 @@ if (!Myna) var Myna={}
 					user_group_id:Myna.createUuid(),
 					name:options.name,
 					appname:options.appname,
+					auth_type:options.auth_type,
 					description:options.description|| ""
 				})
 			}
@@ -812,7 +814,8 @@ if (!Myna) var Myna={}
 						user = $this.addUser(adapter.getUserByLogin(login))
 						user.setLogin({type:type,login:login})
 					}
-					if (adapter.syncGroups) adapter.syncGroups(login,user.user_id)
+					//this is handled by a scheduled task now
+					//if (adapter.syncGroups) adapter.syncGroups(login,user.user_id)
 					user_ids.push(user.get_user_id());
 				}
 			})

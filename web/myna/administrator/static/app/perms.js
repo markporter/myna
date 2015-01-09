@@ -1436,6 +1436,14 @@ var controllers=[]
 						add_group:function (event) {
 							this.showAddGroup(event)
 						},
+						sync_groups:function (event) {
+							U.infoMsg("Remote sync starting...")
+							this.syncGroups(function(result){
+								if (result.success){
+									U.infoMsg("Remote Auth groups synchronized")
+								}
+							});
+						},
 						search:function (event) {
 							var store= event.src.getStore();
 							if (!store.getProxy.extraParams) store.getProxy.extraParams = {}
@@ -1573,6 +1581,9 @@ var controllers=[]
 					title:"Manage Groups"
 				})
 			},
+			syncGroups:function(cb) {
+				$FP.UserGroup.syncGroups({},cb)
+			},
 			removeGroup:function (model,cb) {
 				$FP.UserGroup.remove(model.data,function (result) {
 					if (result.success && model.stores){
@@ -1709,6 +1720,15 @@ var controllers=[]
 									})
 									combo.setValue("")
 								}
+							}
+						},{
+							text:"Re-import synced groups",
+							iconCls:"icon_adapter",
+							handler:function(c){
+								var view=c.up("group_grid");
+								view.fireEvent("sync_groups",{
+									src:view
+								});
 							}
 						}],
 						editFormConfig:{

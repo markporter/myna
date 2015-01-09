@@ -275,6 +275,7 @@ function importGroup(name) {
 	var group = Myna.Permissions.addUserGroup({
 		name:name,
 		appname:appname,
+		auth_type:this.config.auth_type,
 		description:"Imported group from provider '{auth_type}'".format($this.config)
 	})
 	var groupLdap = this.getLdap().lookup(name)
@@ -330,6 +331,20 @@ function importGroup(name) {
 				group.addUsers(user.user_id)
 			//} catch(e) {}
 		})
+	var tasks = Myna.Admin.task.getAll()
+	if (!("myna_import_auth_groups" in tasks)){
+		Myna.Admin.task.save({
+			name:"myna_import_auth_groups",
+			id:"myna_import_auth_groups",
+			start_date:new Date(),
+			descritption:"Imports users from auth-adapter groups",
+			type:"Simple",
+			is_active:1,
+			interval:10,
+			scale:"minutes",
+			script:"/shared/js/cron/myna_import_auth_groups.sjs"
+		},true)
+	}
 	return group;
 }
 
