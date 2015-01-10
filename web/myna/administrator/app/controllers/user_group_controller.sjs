@@ -82,11 +82,11 @@
 			totalRows:beans.totalRows
 		} 
 	}
-/* ---------- getRights ------------------------------------------------------ */
-	function getRights(params){
+/* ---------- getSubGroups ------------------------------------------------------ */
+	function getSubGroups(params){
 		if (!params.sort){
 			params.sort=[{
-				property:"appname",
+				property:"name",
 				direction:"asc"
 			}]
 			
@@ -110,7 +110,46 @@
 			page:params.page,
 			pageSize:params.limit
 		}
-		//var beans=ug.Rights(criteria,meta)
+		//Myna.printConsole(Myna.dumpText(ug.associations));
+		//var beans=ug.Users(criteria,meta)
+		var beans=ug.SubGroups()
+
+
+		return {
+			data:beans,
+			totalRows:beans.totalRows
+		} 
+	}
+/* ---------- getRights ------------------------------------------------------ */
+	function getRights(params){
+		if (!params.sort){
+			params.sort=[{
+				property:"appname",
+				direction:"asc"
+			}]
+			
+		}
+		
+		var ug = this.model.getById(params.user_group_id)
+		var $this = this;
+		var criteria = params.filter(function(v,k){
+			return true
+			if ( $FP.getModel("Right").columnNames.contains(k) && v){
+				return true;
+			}
+		}).map(function(v,k){
+			return "%" +String(v).toLowerCase()+"%"
+		})
+		
+		criteria.orderBy =params.sort.map(function(def){
+			return def.property + " " + def.direction
+		}).join()
+		
+		var meta = {
+			page:params.page,
+			pageSize:params.limit
+		}
+		//var beans=ug.Rights({conditions:{name:"%list%"}},meta)
 		var beans=ug.Rights()
 
 		return {
@@ -131,6 +170,15 @@
 		Myna.Permissions
 			.getUserGroupById(params.user_group_id)
 			.addUsers(params.user_id)
+		return {
+			success:true
+		}
+	}
+/* ---------- addSubGroup ---------------------------------------------------------- */
+	function addSubGroup(params){
+		Myna.Permissions
+			.getUserGroupById(params.user_group_id)
+			.addSubGroups(params.subgroup_id)
 		return {
 			success:true
 		}
@@ -158,6 +206,15 @@
 		Myna.Permissions
 			.getUserGroupById(params.user_group_id)
 			.removeUsers(params.user_id)
+		return {
+			success:true
+		}
+	}
+/* ---------- removeSubGroup -------------------------------------------------------- */
+	function removeSubGroup(params){
+		Myna.Permissions
+			.getUserGroupById(params.user_group_id)
+			.removeSubGroups(params.subgroup_id)
 		return {
 			success:true
 		}

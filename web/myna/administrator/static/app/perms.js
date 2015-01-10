@@ -1491,6 +1491,46 @@ var controllers=[]
 							)
 						}
 					},
+					group_subgroups_grid:{
+						show_add_subgroup:function (event) {
+							Ext.widget("group_subgroup_add",{
+								groupGrid:event.src
+							})
+						},
+						remove_subgroup:function (user_group_id,model,col,grid) {
+							var msg="Remove subgroup {name} from this group?".format(
+								model.data
+							)
+							if (confirm(msg)){
+								this.removeSubGroup(user_group_id,grid.user_group_id,function (result) {
+									if (result.success && model.stores){
+										model.stores.forEach(function (store) {
+											store.remove(model)
+										})
+									}				
+								})
+							}
+						}
+						
+					},
+					group_subgroup_add:{
+						add_subgroup:function (event) {
+							this.addSubGroup(
+								event.models.items.map(function (model) {
+									return model.data.user_group_id
+								}).join(),
+								event.groupGrid.user_group_id,
+								function (result) {
+									if (result.success){
+										event.models.items.forEach(function (model) {
+											event.groupGrid.getStore().add(model);	
+										})
+										event.src.close();
+									}
+								}
+							)
+						}
+					},
 					group_rights_grid:{
 						show_add_right:function (event) {
 							Ext.widget("group_right_add",{
@@ -1619,6 +1659,21 @@ var controllers=[]
 				$FP.UserGroup.addUser({
 					user_id:user_id,
 					user_group_id:user_group_id
+				},cb)
+			},
+			removeSubGroup:function (subgroup_id,user_group_id,cb) {
+				$FP.UserGroup.removeSubGroup({
+					subgroup_id:subgroup_id,
+					user_group_id:user_group_id
+				},function (result) {
+					
+					cb(result)
+				})
+			},
+			addSubGroup:function (subgroup_id,user_group_id,cb) {
+				$FP.UserGroup.addSubGroup({
+					user_group_id:user_group_id,
+					subgroup_id:subgroup_id
 				},cb)
 			},
 			removeRight:function (right_id,user_group_id,cb) {
@@ -1787,6 +1842,13 @@ var controllers=[]
 								frame:true
 								
 							},{
+								title:"Sub-Groups",
+								xtype:"group_subgroups_grid",
+								autoScroll:true,
+								iconCls:"icon_manage_groups",
+								frame:true
+								
+							},{
 								title:"Rights",
 								xtype:"group_rights_grid",
 								autoScroll:true,
@@ -1841,6 +1903,7 @@ var controllers=[]
 					this.addListener("beforegridload",function (fp,record) {
 
 						this.down("group_users_grid").setGroupId(record.get("user_group_id"));
+						this.down("group_subgroups_grid").setGroupId(record.get("user_group_id"));
 						this.down("group_rights_grid").setGroupId(record.get("user_group_id"));
 
 					})
@@ -1885,13 +1948,14 @@ var controllers=[]
 							{dataIndex:"description", flex:1 }
 						].map(function (row) {
 							return Ext.applyIf(row,{
+								//filterable:true,
 								text:App.model.Right.fields[row.dataIndex].label
 								
 							})
 						}),
 						//filterAutoLoad:true,
 						filterSuppressTitle:true,
-						paged:true,
+						//paged:true,
 						tbar:[{
 							text:"Add Right",
 							iconCls:"icon_add",
@@ -1999,13 +2063,15 @@ var controllers=[]
 							{dataIndex:"email", flex:1}
 						].map(function (row) {
 							return Ext.applyIf(row,{
+								//filterable:true,
 								text:App.model.User.fields[row.dataIndex].label
 								
 							})
 						}),
 						//filterAutoLoad:true,
 						filterSuppressTitle:true,
-						paged:true,
+						//filterMode:"local",
+						//paged:true,
 						tbar:[{
 							text:"Add User",
 							iconCls:"icon_add",
@@ -2065,6 +2131,119 @@ var controllers=[]
 										src:view,
 										models:view.down("supagrid").getSelectionModel().selected,
 										userGrid:view.userGrid
+									});
+								}
+							}]
+						}]
+					})
+					this.callParent(arguments);
+					this.down("supagrid").loadFirstPage()
+					
+				}
+			})	
+		/* ----------- group_subgroups_grid ------------------------------------- */
+			Ext.define('App.view.GroupSubgroupsGrid', {
+				extend: 'univnm.ext.SupaGrid',
+				alias:'widget.group_subgroups_grid',
+				
+				initComponent:function () {
+					var $this = this;
+					
+					Ext.apply(this,{
+						iconCls:"icon_manage_users",
+						store:{
+							type:"direct",
+							directFn:$FP.UserGroup.getSubGroups,
+							root:"data",
+							fields:[
+								"user_group_id",
+								"name",
+								"appname",
+								"auth_type"
+							]
+						},
+						columns:[
+							{dataIndex:"user_group_id",
+								eventName:"remove_subgroup", 
+								width:25,
+								qtip:"Remove this sub-group",
+								text:" ",
+								renderer:function (val) {
+									return '<img src="{0}static/images/delete.png"/>'.format(
+										appVars.appUrl
+									)
+								}
+							},
+							{dataIndex:"name", flex:1},
+							{dataIndex:"appname", flex:1},
+							{dataIndex:"auth_type", flex:1}
+						].map(function (row) {
+							return Ext.applyIf(row,{
+								text:App.model.UserGroup.fields[row.dataIndex].label
+							})
+						}),
+						//filterAutoLoad:true,
+						filterSuppressTitle:true,
+						//paged:true,
+						tbar:[{
+							text:"Add Sub-Group",
+							iconCls:"icon_add",
+							handler:function(c){
+								var view=c.up("group_subgroups_grid");
+								view.fireEvent("show_add_subgroup",{
+									src:view
+								});
+							}
+						}]
+						
+					})
+					
+					this.callParent(arguments);
+					this.setGroupId = function (user_group_id) {
+						if (!user_group_id) return;
+						this.user_group_id = user_group_id;
+						this.getStore().getProxy().extraParams={
+							user_group_id:user_group_id
+						}
+						//this.loadFirstPage();
+						this.getStore().load();
+					}
+					
+				}
+
+			})
+		/* ----------- group_subgroup_add --------------------------------------- */
+			Ext.define('App.view.GroupSubgroupAdd', {
+				extend: 'Ext.window.Window',
+				alias:'widget.group_subgroup_add',
+				title:"Add User",
+				iconCls:"icon_manage_users",
+				autoShow:true,
+				width:1000,
+				maximizable:true,
+				height:750,
+				layout:"fit",
+				modal:true,
+				initComponent:function () {
+					var $this= this;
+					Ext.apply(this,{
+						//frame:true,
+						items:[{
+							//xtype::"form",
+							xtype:"group_grid",
+							selType: 'checkboxmodel',
+							selModel: {
+								mode: 'MULTI'
+							},
+							buttons:[{
+								iconCls:"icon_add",
+								text:"Add Selected Groups",
+								handler:function(c){
+									var view=c.up("group_subgroup_add");
+									view.fireEvent("add_subgroup",{
+										src:view,
+										models:view.down("supagrid").getSelectionModel().selected,
+										groupGrid:view.groupGrid
 									});
 								}
 							}]

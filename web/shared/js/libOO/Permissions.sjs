@@ -750,8 +750,8 @@ if (!Myna) var Myna={}
 			returns the User object that matches the supplied login or null
 			
 			Parameters:
-				type		-	login type
-				login		-	login
+				type		-	auth type
+				login		-	login or remote_id, both are searched
 		*/
 		getUserByLogin:function(type,login){
 			var dm = new Myna.DataManager("myna_permissions");
@@ -766,11 +766,16 @@ if (!Myna) var Myna={}
 					where
 						users.user_id = user_logins.user_id
 						and type={type}
-						and lower(login)={login}
+						and (
+							lower(login)={login}
+							OR
+							remote_id={remote_id}
+						)
 				</ejs>,
 				values:{
 					type:type,
-					login:login.toLowerCase()
+					login:login.toLowerCase(),
+					remote_id:login
 				}
 			});
 			
@@ -1004,6 +1009,17 @@ if (!Myna) var Myna={}
 				
 			})
 
+			model.hasBridgeTo({
+				name:"UserGroups",
+				alias:"SubGroups",
+				bridgeTable:"user_group_subgroups",
+				localBridgeKey:"parent_group_id",
+				foreignBridgeKey:"child_group_id",
+				localKey:"user_group_id",
+				foreignKey:"user_group_id",
+
+			})
+
 			Myna.Permissions.UserGroup.prototype.applyTo(model.beanClass.prototype)
 
 			return model;
@@ -1102,14 +1118,20 @@ if (!Myna) var Myna={}
 			return new Myna.Query({
 				ds:ug.ds,
 				sql:<ejs>
-					select distinct
+					select 
 						r.*
-					from assigned_rights ar,
-						user_group_members ugm,
-						rights r
-					where ugm.user_group_id=ar.user_group_id
-						and r.right_id = ar.right_id
-						and user_id={id}
+					from assigned_rights ar
+						join user_group_members ugm on (ugm.user_group_id=ar.user_group_id)
+						join rights r on (r.right_id = ar.right_id)
+					where ugm.user_id={id}
+					union
+					Select r.*
+					from user_groups ug
+						join user_group_members ugm on (ugm.user_group_id=ug.user_group_id)
+						join user_group_subgroups ugs on (ugs.child_group_id = ugm.user_group_id)
+						join assigned_rights ar on (ar.user_group_id = ugs.parent_group_id)
+					    join rights r on (r.right_id = ar.right_id)
+					where ugm.user_id={id}
 				</ejs>	,
 				values:{id:ug.get_user_id()}
 			})
@@ -1170,8 +1192,10 @@ if (!Myna) var Myna={}
 				this.user_id == "myna_admin" &&
 				appname == "myna_admin"
 			) {return true;}
-			
-			return new Myna.Query({
+			return !!this.qryRights().data.filter(function (row) {
+				return row.appname == appname && row.name == rightName
+			}).length
+/*			return new Myna.Query({
 				ds:ug.ds,
 				sql:<ejs>
 					select 'x' 
@@ -1191,7 +1215,7 @@ if (!Myna) var Myna={}
 					appname:appname,
 					rightName:rightName
 				}
-			}).data.length
+			}).data.length*/
 		}
 	/* Function: hasAnyRight
 		returns true if this user has been assigned the supplied appname and any 
@@ -1211,45 +1235,10 @@ if (!Myna) var Myna={}
 				appname == "myna_admin"
 			) {return true;}
 			
-			var qry = new Myna.Query({
-				ds:ug.ds,
-				sql:<ejs>
-					select right_id from rights where appname ={appname}
-					<@if right_list>
-						and lower(name) in (<%=right_list.toLowerCase.listQualify()%>)  
-					</@if>
-				</ejs>,
-				values:{
-					appname:appname	
-				}
-			})
-			//can't have access if no rights defined
-			if (!qry.data.length) return false;
-			
-			right_list = qry.valueArray("right_id").join().listQualify("'")
-			
 			// !! forces a boolean response instead of a number
-			return !!new Myna.Query({
-				ds:ug.ds,
-				sql:<ejs>
-					select 'x' 
-					from 
-						rights r,
-						assigned_rights ar,
-						user_group_members ugm
-					where 1=1
-						and r.right_id = ar.right_id
-						and ugm.user_group_id=ar.user_group_id
-						and user_id={id}
-						and appname={appname}
-						and r.right_id in (<%=right_list%>)
-				</ejs>	,
-				values:{
-					id:ug.get_user_id(),
-					appname:appname,
-					right_list:right_list
-				}
-			}).data.length
+			return !!this.qryRights().data.filter(function (row) {
+				return row.appname == appname && right_list.listContainsNoCase(row.name)
+			}).length
 		},
 	/* Function: getLogins
 		returns a <DataSet> of objects in the form of [{type,login}] of the logins 
@@ -1324,6 +1313,8 @@ if (!Myna) var Myna={}
 			login		-	the appropriate type of identifier,
 			password	-	*optional default ""*
 							a plain text password to encrypt with this login
+			remote_id	-	*optional default login*
+							For logins from remote auth adapters, this is the unique Identity for this login in the remote system
 	 */
 		Myna.Permissions.User.prototype.setLogin = function(options){
 			var user = this;
@@ -1343,7 +1334,7 @@ if (!Myna) var Myna={}
 			})
 				
 			if (existing.length){
-				user_logins.getById(existing[0]).set_password(options.password)
+				user_logins.getById(existing[0]).setFields(options)
 			} else {
 				options.user_login_id = Myna.createUuid();
 				user_logins.create(options)
@@ -1615,6 +1606,77 @@ if (!Myna) var Myna={}
 				</ejs>,
 				values:{id:ug.get_user_group_id()}
 			})
+		}
+
+	/* Function: addSubGroups
+		adds one or more sub_groups to this group, if not already added
+		
+		Parameters:
+			sub_group_id_list		-	array or list of group_ids of sub_groups to add
+			
+	 */
+		Myna.Permissions.UserGroup.prototype.addSubGroups = function(sub_group_id_list){
+			var assigned_sub_groups = this.dm.getManager("user_group_subgroups");
+			if (!(sub_group_id_list instanceof Array)){
+				sub_group_id_list = sub_group_id_list.split(/,/)
+			}
+			var ug = this;
+			sub_group_id_list.forEach(function(sub_group_id){
+				var existing = assigned_sub_groups.find({
+					parent_group_id:ug.get_user_group_id(),
+					child_group_id:sub_group_id
+				})
+				if (!existing.length){
+					assigned_sub_groups.create({
+						id:Myna.createUuid(),
+						parent_group_id:ug.get_user_group_id(),
+						child_group_id:sub_group_id
+					})
+				}
+			})
+		}
+	
+	/* Function: qrySubGroups
+		returns query of sub_groups associated with this group
+		
+	 */
+		Myna.Permissions.UserGroup.prototype.qrySubGroups = function(){
+			var ug = this;
+			return new Myna.Query({
+				ds:ug.ds,
+				sql:<ejs>
+					select * 
+					from user_group_subgroups
+					where parent_group_id={id}
+				</ejs>	,
+				values:{id:ug.get_user_group_id()}
+			})
+		}
+	
+	/* Function: removeSubGroups
+		removes one or more sub_groups from this group, if not already removed
+		
+		Parameters:
+			sub_group_id_list		-	array or list of sub_group_ids of user to add
+			
+	 */
+		Myna.Permissions.UserGroup.prototype.removeSubGroups = function(sub_group_id_list){
+			if (sub_group_id_list instanceof Array){
+				sub_group_id_list = sub_group_id_list.join();
+			}
+			var ug = this;
+			new Myna.Query({
+				ds:this.ds,
+				sql:<ejs>
+					delete from user_group_subgroups 
+					where child_group_id in (<%=sub_group_id_list.listQualify("'",',')%>)
+						and parent_group_id = {id}
+				</ejs>,
+				values:{
+					id:ug.get_user_group_id()
+				}
+			})
+			
 		}
 
 

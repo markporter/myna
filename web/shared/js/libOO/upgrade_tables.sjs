@@ -268,6 +268,13 @@ if ($server.properties.log_engine == "myna_log"){
 			})
 		}
 		/* add newer columns */
+			if (!("remote_id" in table.columns)){
+				table.addColumn({
+					name:"remote_id",
+					type:"VARCHAR",
+					maxLength:255
+				})	
+			}
 			/* if (!("failed_logins" in table.columns)){
 				table.addColumn({
 					name:"failed_logins",
@@ -359,6 +366,44 @@ if ($server.properties.log_engine == "myna_log"){
 			})
 			
 		}
+	/* user_group_subgroups table */
+		table = db.getTable("user_group_subgroups");
+		if (!table.exists){
+			table.create({
+				columns:[{
+					name:"id",
+					type:"VARCHAR",
+					maxLength:255,
+					isPrimaryKey:true
+				},{
+					name:"parent_group_id",
+					type:"VARCHAR",
+					maxLength:255,
+					references:{
+						table:"user_groups",
+						column:"user_group_id",
+						onDelete:"cascade",
+						onUpdate:"cascade"	
+					}
+				},{
+					name:"child_group_id",
+					type:"VARCHAR",
+					maxLength:255,
+					references:{
+						table:"user_groups",
+						column:"user_group_id",
+						onDelete:"cascade",
+						onUpdate:"cascade"	
+					}
+				}]
+			});
+			table.addIndex({
+				id:"idx_group_subgroups",
+				unique:true,
+				columns:["parent_group_id","child_group_id"]
+			})
+			
+		}	
 	/* rights table */
 		table = db.getTable("rights");
 		if (!table.exists){
