@@ -1,3 +1,11 @@
+Release Name: 1.12.1
+============================
+Notes: Bug Fixes
+
+* **[FIX]**         LDAP auth adpater import was creating duplicate users if they did not already have a remote_id set.
+* **[FIX]**         upgrade tables was not adding the auth_type column to existing user group table
+
+----------------------------------------------------------
 Release Name: 1.12.0
 ============================
 Notes: Bug Fixes and remote auth adapter (Active Directory) improvments
