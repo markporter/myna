@@ -311,13 +311,6 @@ if ($server.properties.log_engine == "myna_log"){
 					maxLength:255
 				}]
 			});
-			if (!("auth_type" in table.columns)){
-				table.addColumn({
-					name:"auth_type",
-					type:"VARCHAR",
-					maxLength:255
-				})	
-			}
 			table.addIndex({
 				id:"idx_user_group_appname",
 				columns:["appname"]
@@ -327,6 +320,13 @@ if ($server.properties.log_engine == "myna_log"){
 				unique:true,
 				columns:["name","appname"]
 			})
+		}
+		if (!("auth_type" in table.columns)){
+			table.addColumn({
+				name:"auth_type",
+				type:"VARCHAR",
+				maxLength:255
+			})	
 		}
 	/* user_group_members table */
 		table = db.getTable("user_group_members");

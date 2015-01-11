@@ -335,7 +335,11 @@ function importGroup(name) {
 						userObj.first_name = userObj.login
 					}
 					//if (!(userObj.first_name + userObj.last_name).trim()) return;//probably not a user
-					user = Myna.Permissions.addUser(userObj)
+					user = Myna.Permissions.getUserByLogin($this.config.auth_type,userObj.login);
+					if (!user){
+						user = Myna.Permissions.addUser(userObj)	
+					}
+					
 					//var user = Myna.Permissions.getUserByLogin($this.config.auth_type,userObj.login);
 					
 					user.setLogin({
