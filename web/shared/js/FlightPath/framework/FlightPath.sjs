@@ -395,9 +395,14 @@
 	}
 /* Function: getControllerNames
 	returns an array containing all the available controller names
+
+	Parameters: 
+		forceRealod		-	*Default false*
+							Set to true to bypass caching and re-inspect the controllers on disk
 	*/
-	function getControllerNames(){
+	function getControllerNames(forceReload){
 		var key = $application.appname +":$FP::controllerNames";
+		if (forceReload) Myna.Cache.getByName(key).clear();
 		function getNames(){	
 			var names= new Myna.File("app/controllers")
 				.listFiles("sjs")
