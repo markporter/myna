@@ -595,6 +595,14 @@ getStatement:function(sql){
 		var con = db.con;
 		var ResultSet = java.sql.ResultSet;
 		if (!$req["__CACHE__STATEMENT"]) $req["__CACHE__STATEMENT"] = new java.util.Hashtable();
+		//TODO: make  this a datasource property
+		if ($req["__CACHE__STATEMENT"].size() > 100){
+			var map = Myna.JavaUtils.mapToObject($req["__CACHE__STATEMENT"])
+			map.forEach(function (st) {
+				st.close()
+			})
+			$req["__CACHE__STATEMENT"].clear()
+		}
 		if (
 			$req["__CACHE__STATEMENT"].containsKey(qry.dataSource+sql) &&
 			!$req["__CACHE__STATEMENT"].get(qry.dataSource+sql)._closed &&
