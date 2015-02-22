@@ -159,8 +159,9 @@ if (!$server_gateway.environment.containsKey("isCommandline")){
 			Date.getInterval(Date.SECOND,10)
 		)
 	//set up HazelCast
+		/* disabled */ if (false)
 		new Myna.Thread(function(){
-			/* disabled */ return
+			
 			
 			
 				var Hazelcast = com.hazelcast.core.Hazelcast;

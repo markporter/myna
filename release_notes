@@ -1,3 +1,41 @@
+Release Name: 1.12.1
+============================
+Notes: Bug Fixes
+
+* **[FIX]**         LDAP auth adpater import was creating duplicate users if they did not already have a remote_id set.
+* **[FIX]**         upgrade tables was not adding the auth_type column to existing user group table
+
+----------------------------------------------------------
+Release Name: 1.12.0
+============================
+Notes: Bug Fixes and remote auth adapter (Active Directory) improvments
+
+* **[ADD]**         Myna.Ldap now automatically pages through all results of ldap queries against Active Directory
+* **[ADD]**         MynaThread.importPreCompiled: allows importing of pre-compiled js classes
+* **[ADD]**         Now Pre-compiling core libs into Java classes in libOO.sjs
+* **[ADD]**         User.setLogin can now take a third parameter, remote_id. This is the unique ID of the login from the auth source. GetUserByLogin will also search this field so it is possible to find users based on remote source id, such has LDAP DN
+* **[ADD]**         added "Re-import synced groups" button to group grid in permissions
+* **[ADD]**         libOO can now be run in comiled mode wher pre-loaded classes are used instead of just-in-time compile
+* **[ADD]**         Nested groups. Groups can now contain subgroups. These subgroups will be checked for rights, However this will only go one level deep. Subgroups of subgroups will not be checked.
+* **[ADD]**         standard_objects.sjs now also uses pre-compiled classes for the standard libs
+* **[ADD]**         when running in commandline mode, compiling is disabled and the previously compiled classes are loaded in libOO. This cuts load time in half for commandline mode.
+* **[CHANGE]**      DataSet.js now ONLY contains clientside code, and DataSet.sjs contains both client and server side code.
+* **[CHANGE]**      Made route logging in FlightPath async
+* **[CHANGE]**      Moved static folder from app to root for Myna FlightPath
+* **[CHANGE]**      Removed Flightpath processing for /static files
+* **[CHANGE]**      Updated H2 db to 1.3.176
+* **[CHANGE]**      Updated MynaAdministrator to match new FlightPath static rules
+* **[CHANGE]**      When importing groups from auth adapters, user lookups will now only be performed if the user does not already exists under the a login or remote_id. This dramatically speeds group sync in the case where group memberships overlap, or the the groups has previously been imported
+* **[CHANGE]**      now recreating the global scope on every call. This is now fast enough with pre-compiled libs
+* **[CHANGE]**      removed auth_adapter remote group sync from login process. Replaced with scheduled task every ten minutes
+* **[CHANGE]**      removed sealing of global scope, now that it is not shared
+* **[FIX]**         error in Date.js in browsers that don't support destructuing assignments
+* **[FIX]**         Disabeld Hazelcast Myna.Thread instance in server_start.sjs to avoid "myna not defeind" error messages
+* **[FIX]**         Disabled SNI checking due to bad handing of null server names
+* **[FIX]**         Fixed weird UTF8 error in postgress when SQL string contains NULL characters
+* **[FIX]**         importing groups now only delete the group being imported, not all groups from that auth source
+
+----------------------------------------------------------
 Release Name: 1.11.3
 ============================
 Notes: 

@@ -706,10 +706,10 @@
 			})
 			if (foundOne){
 				if ($FP.config.debug){
-					Myna.logSync("debug","Route metadata for " + restParams.join("/"),Myna.dump(meta,"Routing Metadata",7));
+					Myna.log("debug","Route metadata for " + restParams.join("/"),Myna.dump(meta,"Routing Metadata",7));
 				}
 			}else{
-				Myna.logSync("warning","failed route for " + restParams.join("/"),Myna.dump(meta,"Routing Metadata",7));
+				Myna.log("warning","failed route for " + restParams.join("/"),Myna.dump(meta,"Routing Metadata",7));
 			}
 		} else {
 			

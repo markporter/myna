@@ -275,6 +275,7 @@ function importGroup(name) {
 	var group = Myna.Permissions.addUserGroup({
 		name:name,
 		appname:appname,
+		auth_type:this.config.auth_type,
 		description:"Imported group from provider '{auth_type}'".format($this.config)
 	})
 	var groupLdap = this.getLdap().lookup(name)
@@ -284,52 +285,90 @@ function importGroup(name) {
 		ds:"myna_permissions",
 		sql:<ejs>
 			delete
-					
 			from
 				user_group_members
 			where 
-				
-				user_group_id in (
-					select user_group_id 
-					from user_groups ug
-					where ug.appname = {appname}
-				)
-
-
-				
+				user_group_id = {user_group_id}
 		</ejs>,
 		values:{
-			appname:appname
+			appname:appname,
+			user_group_id:group.user_group_id
 		}
 	});
 
 
 	// import members	
+	if (!$req["_LDAP_ADAPTER_IMPORT_USERS_" + this.config.name]){
+		$req["_LDAP_ADAPTER_IMPORT_USERS_" + this.config.name]={}
+	}
+	var cache = $req["_LDAP_ADAPTER_IMPORT_USERS_" + this.config.name];
+	
+
 	groupLdap
 		.attributes[$this.config.attributeMap.group_member||"member"]
 		.forEach(function (dn) {
+
 			//try{
-				var userLdap = $this.getLdap().lookup(dn)
-				var userObj = {
-					login:"",
-					first_name:"",
-					last_name:"",
-					middle_name:"",
-					title:""
-				}
-				$this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
-					if (ldap_attribute in userLdap.attributes){
-						userObj[myna_attribute] = userLdap.attributes[ldap_attribute][0];
-					}
-				})
-				var user = Myna.Permissions.getUserByLogin($this.config.auth_type,userObj.login);
+				
+				
+				var user;
+				var user = Myna.Permissions.getUserByLogin($this.config.auth_type,dn);
 				if (!user){
-					user = Myna.Permissions.addUser(userObj)
-					user.setLogin({type:$this.config.auth_type,login:userObj.login})
-				}
+					var attributes= []
+					$this.config.attributeMap.forEach(function (ldap_attr) {
+						attributes.push(ldap_attr)
+					})
+					var userLdap = $this.getLdap().lookup(dn,attributes.join())
+					var userObj = {
+						login:"",
+						first_name:"",
+						last_name:"",
+						middle_name:"",
+						title:""
+					}
+					$this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
+						if (ldap_attribute in userLdap.attributes){
+							userObj[myna_attribute] = userLdap.attributes[ldap_attribute][0];
+						}
+					})
+					if (!userObj.first_name){
+						userObj.first_name = userObj.login
+					}
+					//if (!(userObj.first_name + userObj.last_name).trim()) return;//probably not a user
+					user = Myna.Permissions.getUserByLogin($this.config.auth_type,userObj.login);
+					if (!user){
+						user = Myna.Permissions.addUser(userObj)	
+					}
+					
+					//var user = Myna.Permissions.getUserByLogin($this.config.auth_type,userObj.login);
+					
+					user.setLogin({
+						type:$this.config.auth_type,
+						login:userObj.login,
+						remote_id:dn
+					})
+					
+				} 
+
+					
+					
 				group.addUsers(user.user_id)
 			//} catch(e) {}
 		})
+	var tasks = Myna.Admin.task.getAll()
+	if (!("myna_import_auth_groups" in tasks)){
+		Myna.Admin.task.save({
+			name:"myna_import_auth_groups",
+			id:"myna_import_auth_groups",
+			start_date:new Date(),
+			descritption:"Imports users from auth-adapter groups",
+			type:"Simple",
+			is_active:1,
+			interval:10,
+			scale:"minutes",
+			script:"/shared/js/cron/myna_import_auth_groups.sjs"
+		},true)
+	}
 	return group;
 }
 
@@ -447,7 +486,6 @@ function searchGroups(search){
 	
 	
 	
-	//Myna.printConsole("ldap search qry ",qry);
 	return new Myna.DataSet({
 		data:$this.getLdap().search(qry,dnAttr)
 		.filter(function(row){
@@ -475,23 +513,30 @@ function getUserByLogin(login){
 		  qry = "(&" + $this.config.filter + qry + ")"
 	}
 		  
-	return $this.getLdap().search(qry).map(function(row){
-	  var result = {
+	var user = $this.getLdap().search(qry).map(function(row){
+		var result = {
 		  login:"",
 		  first_name:"",
 		  last_name:"",
 		  middle_name:"",
 		  title:""
-	  }
-	  $this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
+		}
+		$this.config.attributeMap.forEach(function(ldap_attribute,myna_attribute){
 			if (ldap_attribute in row.attributes){
 				result[myna_attribute] = row.attributes[ldap_attribute][0];
 			}
-	  })
-	  if (result.login.length) return result
-	 else return null 
-  })[0];
-	
+		})
+		if (!result.first_name){
+			result.first_name = login
+		}
+
+		if (result.login.length) {
+			return result
+		}
+		else return null 
+  	})[0];
+  	
+  	return user
 }
 
 function validate(config) {

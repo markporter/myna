@@ -818,5 +818,4 @@
 		})
 		return result;
 	}
-if (typeof Myna == "undefined") var Myna={}
-Myna.DataSet = DataSet;
+	

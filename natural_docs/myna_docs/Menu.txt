@@ -101,7 +101,7 @@ Group: Myna Object  {
    File: Myna.Database  (/dropbox/Dropbox/Mark/myna/web/shared/js/libOO/Database.sjs)
    File: Myna.DataManager  (/dropbox/Dropbox/Mark/myna/web/shared/js/libOO/DataManager.sjs)
    File: Myna.DataSet  (no auto-title, /dropbox/Dropbox/Mark/myna/web/shared/js/libOO/DataSet.js)
-   File: Myna.DataSet &lparen;Server-side Only&rparen;  (/dropbox/Dropbox/Mark/myna/web/shared/js/libOO/DataSet.sjs)
+   File: Myna.DataSet  (/dropbox/Dropbox/Mark/myna/web/shared/js/libOO/DataSet.sjs)
    File: Myna.Event  (/dropbox/Dropbox/Mark/myna/web/shared/js/libOO/Event.sjs)
    File: Myna.File  (/dropbox/Dropbox/Mark/myna/web/shared/js/libOO/File.sjs)
    File: Myna.HttpConnection  (/dropbox/Dropbox/Mark/myna/web/shared/js/libOO/HttpConnection.sjs)

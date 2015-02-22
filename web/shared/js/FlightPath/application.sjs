@@ -77,7 +77,9 @@
 		
 	},
 	onRequestStart:function(){ // run directly before requested file
-		
+		if (new RegExp(("^" +$application.url + "/static").replace(/\/\//g,"/")).test($server.requestUrl)) {
+        	return;//
+        }
 		
 		/* Example of changing ds based on server purpose */
 		/*
