@@ -1,3 +1,15 @@
+Release Name: 1.12.2
+============================
+Notes: Improved installer, minor bug fixes
+
+* **[ADD]**         $application.appStart property is now set to true inside the application start thread.
+* **[ADD]**         Install mode for Myna now prompts for admin password, and pre-encrypts this into the myna config at install time
+* **[ADD]**         interactive installer: Calling war file with no options now prompts for install options
+* **[CHANGE]**      Cached statements in Myna.Query are now limited to 100. This should prevent "Too Many Cursors" error in Oracle
+* **[CHANGE]**      added forceReload option to FlightPath.getControllerNames
+* **[FIX]**         fixed AD group import to not try top import null auth types
+
+----------------------------------------------------------
 Release Name: 1.12.1
 ============================
 Notes: Bug Fixes
