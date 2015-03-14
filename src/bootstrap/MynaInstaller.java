@@ -24,7 +24,7 @@ public class MynaInstaller
 	public static java.util.List 			javaOpts	 	= new java.util.ArrayList();
 	public static java.util.Properties 		props			= new java.util.Properties();
 	public static boolean					isJar			= false;
-	public static String 					mode 			= "";
+	public static String 					mode 			= "install";
 	public static String 					user 			= "nobody";
 	public static Vector					modeOptions	= new Vector();
 	public static String 					classUrl;
@@ -33,9 +33,12 @@ public class MynaInstaller
 	public static String					keystore		= null;
 	public static String					ksPass			= "changeit";
 	public static String					ksAlias			= "myna";
+	public static String					adminPassword	= "";
+
 	
 	public static void main(String[] args) throws Exception
 	{
+		boolean isInteractive=false;
 		classUrl = MynaInstaller.class.getResource("MynaInstaller.class").toString();
 		isJar = (classUrl.indexOf("jar") == 0);
 		if (!isJar) {
@@ -45,7 +48,8 @@ public class MynaInstaller
 	
 		Thread.sleep(1000);
 		
-		
+		Console console = System.console();
+		String response = null;
 		CommandLineParser parser = new PosixParser();
 	
 		// create the Options
@@ -54,7 +58,8 @@ public class MynaInstaller
 		options.addOption( "h", "help", false, "Displays help." );
 		options.addOption( "w", "webroot", true, "Webroot to use. Will be created if webroot/WEB-INF does not exist. Default: " + webroot );
 		options.addOption( "l", "logfile", true, "Log file to use. Will be created if it does not exist. Default: ./<context>.log" );
-		options.addOption( "s", "servername", true, "Name of this instance. Defaults to either \"myna\" or the value of <context> if defined" );
+		options.addOption( "s", "servername", true, "Name of this instance. Will also be the name of the init script. Defaults to either \"myna\" or the value of <context> if defined" );
+		//options.addOption( "P", "purpose", true, "Purpose of the Server, such as DEV,PROD,TRAIN, etc. Defaults to DEV" );
 		
 		options.addOption( "p", "port", true, "HTTP port. Set to 0 to disable HTTP. Default: " + port );
 		options.addOption( "sp", "ssl-port", true, "SSL (HTTPS) port. Set to 0 to disable SSL, Default: 0");
@@ -76,75 +81,144 @@ public class MynaInstaller
 		
 		String cmdSyntax = "java -jar myna-X.war -m <mode> [options]";
 		try {
+			CommandLine line = parser.parse( options, args );
+			Option option;
 			if (args.length == 0){
 				formatter.printHelp(cmdSyntax, options );
-				System.exit(1);	
+				response =console.readLine("\nContinue with Interactive Install? (y/N)");
+				if (response.toLowerCase().equals("y"))	{
+					isInteractive=true;
+					
+				} else System.exit(1);
 			}
-			CommandLine line = parser.parse( options, args );
-			
-			if( line.hasOption( "help" ) ) {
-				formatter.printHelp(cmdSyntax, options);
-				System.exit(0);
-			}
-			
-			if( line.hasOption( "mode" ) ) {
-				mode = line.getOptionValue( "mode" );
-				if (!modeOptions.contains(mode)){
-					System.err.println( "Invalid Arguments.  Reason: Mode must be in " + modeOptions.toString());
-					formatter.printHelp( cmdSyntax, options );
-					System.exit(0);
+			// Help
+				if( line.hasOption( "help" ) ) {
+					formatter.printHelp(cmdSyntax, options);
+					System.exit(1);
 				}
-				
-			}
-			
-			if( line.hasOption( "port" ) ) {
-				port = Integer.parseInt(line.getOptionValue( "port" ));
-			}
-			if( line.hasOption( "context" ) ) {
-				webctx=line.getOptionValue( "context" );
+			// mode 
+				if( line.hasOption( "mode" ) ) {
+					mode = line.getOptionValue( "mode" );
+					if (!modeOptions.contains(mode)){
+						System.err.println( "Invalid Arguments.  Reason: Mode must be in " + modeOptions.toString());
+						formatter.printHelp( cmdSyntax, options );
+						System.exit(1);
+					}
+				} else if (isInteractive){
+					option = options.getOption("mode");
+					console.printf("\n"+option.getDescription());
+					
+					do {
+						response=console.readLine("\nEnter " +option.getLongOpt() +"("+mode+"): ");
+						if(!response.isEmpty()) mode = response;
+					} while (!modeOptions.contains(mode));
+				}
+			//webroot	
+				if( line.hasOption( "webroot" ) ) {
+					webroot=line.getOptionValue( "webroot" );
+				} else if (isInteractive){
+					option = options.getOption("webroot");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+webroot+"): ");
+					if(!response.isEmpty()) webroot = response;
+				}
+			//port
+				if( line.hasOption( "port" ) ) {
+					port = Integer.parseInt(line.getOptionValue( "port" ));
+				} else if (isInteractive && mode.equals("install")){
+					option = options.getOption("port");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+port+"): ");
+					if(!response.isEmpty()) port = Integer.parseInt(response);
+				}
+			//context
+				if( line.hasOption( "context" ) ) {
+					webctx=line.getOptionValue( "context" );
+					
+				} else if (isInteractive && mode.equals("install")){
+					option = options.getOption("context");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+webctx+"): ");
+					if(!response.isEmpty()) webctx = response;
+				}
 				if (!webctx.startsWith("/")){
 					webctx = "/" + webctx;	
 				}
-			}
-			if( line.hasOption( "servername" ) ) {
-				serverName=line.getOptionValue( "servername" );
-			} else if (!webctx.equals("/")){
-				serverName= webctx.substring(1);	
-			}
-				
-			if( line.hasOption( "user" ) ) {
-				user=line.getOptionValue( "user" );
-			}
-			if( line.hasOption( "logfile" ) ) {
-				logFile= line.getOptionValue( "logfile" );
-			} else if (!webctx.equals("/")){
-				logFile=webctx.substring(1)+".log";	
-			} else{
+			//servername (depends on context)
+				if (!webctx.equals("/")){
+					serverName= webctx.substring(1);	
+				} 	
+				if( line.hasOption( "servername" ) ) {
+					serverName=line.getOptionValue( "servername" );
+				} else if (isInteractive  && mode.equals("install")){
+					option = options.getOption("servername");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+serverName+"): ");
+					if(!response.isEmpty()) serverName = response;
+				} 
+			//user	
+				if( line.hasOption( "user" ) ) {
+					user=line.getOptionValue( "user" );
+				} else if (isInteractive  && mode.equals("install")){
+					option = options.getOption("user");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+user+"): ");
+					if(!response.isEmpty()) user = response;
+				}
+			//logfile
 				logFile="myna.log";
-			}
-			if( line.hasOption( "webroot" ) ) {
-				webroot=line.getOptionValue( "webroot" );
-			}
+				if (!webctx.equals("/")){
+					logFile=webctx.substring(1)+".log";	
+				}
+				if( line.hasOption( "logfile" ) ) {
+					logFile= line.getOptionValue( "logfile" );
+				} else if (isInteractive && mode.equals("install")){
+					option = options.getOption("logfile");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"path("+logFile+"): ");
+					if(!response.isEmpty()) logFile = response;
+				}
 			
-			//ssl stuff
-			if( line.hasOption( "ssl-port" ) ) {
-				sslPort = Integer.parseInt(line.getOptionValue( "ssl-port" ));
-			}
-			
-			if( line.hasOption( "ks-pass" ) ) {
-				ksPass=line.getOptionValue( "ks-pass" );
-			}
-			if( line.hasOption( "ks-alias" ) ) {
-				ksAlias=line.getOptionValue( "ks-alias" );
-			}
-			if( line.hasOption( "keystore" ) ) {
-				keystore=line.getOptionValue( "keystore" );
-			} else {
+			//ssl-port
+				if( line.hasOption( "ssl-port" ) ) {
+					sslPort = Integer.parseInt(line.getOptionValue( "ssl-port" ));
+				} else if (isInteractive && mode.equals("install")){
+					option = options.getOption("ssl-port");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+sslPort+"): ");
+					if(!response.isEmpty()) sslPort = Integer.parseInt(response);
+				}
+			//ks-pass
+				if( line.hasOption( "ks-pass" ) ) {
+					ksPass=line.getOptionValue( "ks-pass" );
+				} else if (isInteractive && mode.equals("install")){
+					option = options.getOption("ks-pass");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+ksPass+"): ");
+					if(!response.isEmpty()) ksPass = response;
+				}
+			//ks-alias
+				if( line.hasOption( "ks-alias" ) ) {
+					ksAlias=line.getOptionValue( "ks-alias" );
+				} else if (isInteractive && mode.equals("install")){
+					option = options.getOption("ks-alias");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+ksAlias+"): ");
+					if(!response.isEmpty()) ksAlias = response;
+				}
+			//keystore
 				String appBase = new File(webroot).getCanonicalPath();
 				if (keystore == null){
 					keystore = appBase+"/WEB-INF/myna/myna_keystore";
 				}	
-			}
+				if( line.hasOption( "keystore" ) ) {
+					keystore=line.getOptionValue( "keystore" );
+				} else if (isInteractive && mode.equals("install")){
+					option = options.getOption("keystore");
+					console.printf("\n"+option.getDescription());
+					response=console.readLine("\nEnter " +option.getLongOpt() +"("+keystore+"): ");
+					if(!response.isEmpty()) keystore = response;
+				}
 			
 			javaOpts = line.getArgList();
 		} 
@@ -154,14 +228,54 @@ public class MynaInstaller
 			formatter.printHelp(cmdSyntax, options );
 			System.exit(1);
 		}
+		
+		if (isInteractive){
+			System.out.println("\nProceeed with the following settings?:\n");
+				System.out.println("mode        = " + mode);
+			    System.out.println("webroot     = " + webroot);
+			if (mode.equals("install")){
+				System.out.println("port        = " + port);
+				System.out.println("context     = " + webctx);
+				System.out.println("servername  = " + serverName);
+				System.out.println("user        = " + user);
+				System.out.println("logfile     = " + logFile);
+				System.out.println("ssl-port    = " + sslPort);
+				System.out.println("ks-pass     = " + ksPass);
+				System.out.println("ks-alias    = " + ksAlias);	
+				System.out.println("keystore    = " + keystore);
+			}
+			response = console.readLine("Continue? (Y/n)");
+			if (response.toLowerCase().equals("n")) System.exit(1);
+				
+		}
 		File wrFile = new File(webroot);
 		webroot= wrFile.toString();
+		if (mode.equals("install")){
+			adminPassword=console.readLine("\nCreate an Admin password for this installation: ");
+		}
 		//unpack myna if necessary
 		if (!wrFile.exists() || mode.equals("upgrade") || mode.equals("install")){
 			upgrade(wrFile);
 		}
 		
 		if (mode.equals("install")){
+			File propertiesFile = new File(
+				wrFile.toURI().resolve("WEB-INF/classes/general.properties")
+			);
+			FileInputStream propertiesFileIS = new FileInputStream(propertiesFile);  
+			Properties generalProperties = new Properties();
+			generalProperties.load(propertiesFileIS);
+			propertiesFileIS.close();
+			if (!adminPassword.isEmpty()){
+				org.jasypt.util.password.StrongPasswordEncryptor cryptTool = new org.jasypt.util.password.StrongPasswordEncryptor();	
+				generalProperties.setProperty("admin_password",cryptTool.encryptPassword(adminPassword));
+			}
+			generalProperties.setProperty("instance_id",serverName);
+			
+			generalProperties.store(new java.io.FileOutputStream(propertiesFile),"Myna General Properties");
+			
+
+			
 			String javaHome = System.getProperty("java.home");
 			webroot=new File(webroot).getCanonicalPath();
 			if (serverName.length() == 0) serverName = "myna";
