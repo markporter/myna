@@ -216,6 +216,7 @@
 					<zips>	
 						<fileset dir="${jars.home}" includes="commons-cli.jar" />
 						<fileset dir="${jars.home}" includes="commons-io.jar" />
+						<fileset dir="${jars.home}" includes="jasypt.jar" />
 						<fileset dir="${jars.home}" includes="jetty-all.jar" excludes=" *about.html"/>
 						<fileset dir="${jars.home}" includes="servlet-api-2.5.jar" excludes="*META-INF/* *about_files/* *about.html *plugin.properties"/>
 						
@@ -276,6 +277,9 @@
 					<zips>	
 						<fileset dir="${jars.home}" includes="commons-cli.jar" />
 						<fileset dir="${jars.home}" includes="commons-io.jar" />
+						<fileset dir="${jars.home}" includes="commons-lang.jar" />
+						<fileset dir="${jars.home}" includes="commons-codec.jar" />
+						<fileset dir="${jars.home}" includes="jasypt.jar" />
 						<!-- <fileset dir="${jars.home}" includes="jetty-all.jar" excludes=" *about.html"/>
 						<fileset dir="${jars.home}" includes="servlet-api-2.5.jar" excludes="*META-INF/* *about_files/* *about.html *plugin.properties"/> -->
 						

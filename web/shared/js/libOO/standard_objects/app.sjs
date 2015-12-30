@@ -434,7 +434,15 @@ var $application={
 		(end)
 	*/
 	postInstallUrl:null,// 
-				
+/* Property: appStart
+		Is this the startup request for this app?
+		
+		Detail:
+			When an application startup is detected, this property is set to true
+
+		
+	*/
+	appStart:false,				
 /* Property: idleMinutes
 		Max time in minutes between application data access before app memory is 
 		recovered *Default 60*. 
@@ -1036,6 +1044,7 @@ var $application={
 	onApplicationStart:function(){},
 	_onRequestStart:function(){
 		this._initAppScope();
+		this.appStart=true
 		if ($server.isThread || $server.isCommandLine) return;
 		// call overloaded on request 
 			var originalCurrentDir =$server_gateway.currentDir;
