@@ -896,12 +896,14 @@ var $application={
 					var user_id =Myna.Permissions.consumeAuthToken($req.rawData.auth_token)
 					if (user_id) $cookie.setAuthUserId(user_id)
 					var queryVars = $req.paramNames.filter(function(key){
-						return key != "auth_token"
+						return key != "auth_token" && key != "auth_provider"
 					}).map(function(key){
 						return key +"="+$req.rawData[key].escapeUrl()
 					}).join("&");
 					if (queryVars) queryVars ="?"+queryVars
 					//$res.clear();
+
+					
 					
 					$res.metaRedirect($server.requestUrl+$server.requestScriptName + queryVars)
 					$res.flush();

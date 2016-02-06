@@ -76,6 +76,7 @@ function init(options){
 }
 
 function _mynaAuth(action, params){
+	try{
 	var my = arguments.callee;
 	if (!my.options.userFunction) my.options.userFunction = $cookie.getAuthUser;
 	var right = this.name + "." + action;
@@ -96,22 +97,32 @@ function _mynaAuth(action, params){
 		}
 		//Myna.log("debug","User = " + user.first_name + " " + user.last_name);
 		var cookie_user_id = $cookie.getAuthUserId()
+
 		if (!cookie_user_id){
 			if ($cookie.get("myna_auth_cookie")){
+				var lastProvider = $cookie.get("myna_last_provider")
+				var providers = my.options.providers;
+				if (lastProvider){
+					providers=[lastProvider]
+					lastProvider = Myna.Permissions.getAuthAdapter(lastProvider)
+
+				}
+				var providerNames= providers.map(function(p){
+					return Myna.Permissions.getAuthAdapter(p).config.prettyName 
+				}).join()
 				var passHash = (String($req.authUser)+String($req.authPassword)).toHash();
 
 				if ($req.authUser && $req.authPassword && passHash != $session.get("myna_auth_last_pass")){
 					$session.set("myna_auth_last_pass", passHash);
-					user = Myna.Permissions.getUserByAuth($req.authUser,$req.authPassword,my.options.providers);
+					user = Myna.Permissions.getUserByAuth($req.authUser,$req.authPassword,providers);
 					if (user){
 						$cookie.setAuthUserId( (cookie_user_id = user.id) );
 					} else {
-
-						$res.requestBasicAuth($application.displayName + " (Admin User: myna_admin)");
+						$res.requestBasicAuth("{0} ({1})".format($application.displayName,providerNames));
 						cookie_user_id = null;
 					}
 				}else{
-					$res.requestBasicAuth($application.displayName + " (Admin User: myna_admin)");
+					$res.requestBasicAuth("{0} ({1})".format($application.displayName,providerNames));
 					return false;
 				}
 				
@@ -189,4 +200,5 @@ function _mynaAuth(action, params){
 			}
 		}
 	}
+} catch(e){Myna.printConsole(Myna.dumpText(e));}
 }
