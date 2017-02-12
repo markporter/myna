@@ -251,7 +251,9 @@
 					displayName:"",// "pretty" name used in labels and titles
 					description:<ejs>
 					
-					</ejs>,//short description of application
+					</ejs>
+					
+					,//short description of application
 					author:"", //name of app author
 					authorEmail:"",// email of app author
 					website:"",//website associated with this app
@@ -708,8 +710,9 @@ var $application={
 					}
 				
 				//get array of merged GET and POST parameters as key, value pairs
+				var params
 				try {//this might blow up in Winstone
-					var params = Myna.JavaUtils.mapToObject($server.request.getParameterMap());
+					 params = Myna.JavaUtils.mapToObject($server.request.getParameterMap());
 				} catch(e){
 					params={}	
 				}
@@ -754,6 +757,7 @@ var $application={
 						var upload = new fileupload.servlet.ServletFileUpload(diskItemFactory);
 						var lastBytesRead=0;
 						var lastTick = new Date().getTime();
+						//jshint ignore:start
 						var listener =new fileupload.ProgressListener(){
 							update:function(pBytesRead, pContentLength, pItems){
 								var my = arguments.callee;
@@ -794,6 +798,7 @@ var $application={
 								}
 							}
 						};
+						//jshint ignore:end
 						upload.setProgressListener(listener);
 						
 						// Parse the request
@@ -842,11 +847,11 @@ var $application={
 				params.forEach(function(valArray,key){
 					$req.paramNames.push(String(key));	
 					//check for null value, ie "&somevar="
-					if (valArray.length ==0){
+					if (valArray.length ===0){
 						$req.data[key] ="";
 					} else {
 						// handle non-null
-						for (valId=0; valId<valArray.length; ++valId){
+						for (valId=0; valId < valArray.length; ++valId){
 							curVal = String(valArray[valId]);
 							
 							if (!$req.data[key + "$array"] ){
@@ -1118,7 +1123,7 @@ var $application={
 				try{
 					var local_session = $server.request.getSession();
 					
-					if ($session.timeoutMinutes != undefined) {
+					if ($session.timeoutMinutes !== undefined) {
 						local_session.setMaxInactiveInterval($session.timeoutMinutes*60)
 					}
 				} catch(e) {}
@@ -1141,6 +1146,8 @@ var $application={
 				$profiler.calcAverages();
 				var averaged = $profiler.getSummaryHtml();
 				
+				/*jshint ignore:start*/
+				
 				Myna.log("profiler",$server.requestUrl+$server.requestScriptName,<ejs>
 					<h1>Averaged Profile</h1>
 					<%=averaged%>
@@ -1148,6 +1155,7 @@ var $application={
 					<h1>Raw Profile</h1>
 					<%=raw%>
 				</ejs>);
+				/*jshint ignore:end*/
 			} catch(e){}
 			
 		}
@@ -1185,7 +1193,7 @@ var $application={
 				} else {
 					message = exception.message || message;
 				}
-			} catch(e){
+			} catch(e){//jshint ignore:line
 			} finally {
 				Myna.log("ERROR",message,formattedError);
 			}
@@ -1218,6 +1226,7 @@ var $application={
 		if ((!this.onError || !this.onError(exception)) && formattedError){
 			if ($server_gateway.environment.get("isCommandline")){
 				var error = Myna.normalizeError(exception);
+				/*jshint ignore:start*/
 				Myna.printConsole("====== ERROR: " + error.message + " =====",<ejs>
 					File: <%=error.file%>
 					
@@ -1227,6 +1236,7 @@ var $application={
 					<%=line%>
 					</@loop>
 				</ejs>)
+				/*jshint ignore:end*/
 				//if initThread is commandLine, then we are not a server and should terminate
 				if ($server_gateway.isInitThread){
 					java.lang.System.exit(1);
@@ -1340,15 +1350,21 @@ var $application={
 					if (appFile.exists()){
 						var before = $server_gateway.currentDir;
 						$server_gateway.currentDir =curPath;
-						var appText = new Myna.File(curPath + "application.sjs").readString();
+						var appText = new Myna.File(curPath + "application.sjs").readString().trim();
+
 						//java.lang.System.err.println("-1" +curPath)
 						$application.directory = curPath;
 						$application.url = $server.rootUrl +$application.directory.right($application.directory.length -$server.rootDir.length)
-						if (/^\s*\{/.test(appText.left(100))){
-							appText = $server_gateway.translateString(appText,curPath + "application.sjs")
+						if (/^\s*\(?{/.test(appText.left(100))){
+							appText = $server_gateway.translateString(appText,curPath + "application.sjs").trim()
+
+							if (/^{/.test(appText)) {
+								appText = "({0})".format(appText);
+							}
+
 							$server_gateway.executeJsString(
 								$server.globalScope, 
-								"var curApp =(" + appText +")", 
+								"var curApp =" + appText, 
 								curPath+"application.sjs"
 							) 
 							//var curApp = eval("(" + appText + ")");
@@ -1381,7 +1397,7 @@ var $application={
 									//java.lang.System.err.println(curPath + ":" +p)
 									$application[p] = curApp[p];
 								}
-							})
+							}) //jshint ignore:line
 							if ($application.init){
 								$application.init();
 							}

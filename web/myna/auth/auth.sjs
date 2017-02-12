@@ -114,6 +114,7 @@ var fusebox={
 								value:	entry.getValue()				 
 						 }
 					 })
+					 /* jshint ignore:start */
 					 Myna.print(<ejs>
 						<html xmlns="http://www.w3.org/1999/xhtml">
 						<head>
@@ -130,6 +131,7 @@ var fusebox={
 						</html>	 
 						 
 					 </ejs>)
+					 /* jshint ignore:end */
 				}
 			} catch(e){
 				Myna.log("AUTH","Failed to negotiate OpenID '" + rawData.openid + "'" ,Myna.dump($req.data) + Myna.formatError(e));
@@ -161,7 +163,7 @@ var fusebox={
 						+"&callback=" + escape(rawData.callback)
 					);
 				}
-			} catch(e if e.message != "___MYNA_ABORT___"){
+			} catch(e if e.message != "___MYNA_ABORT___"){ //jshint ignore:line
 				$req.data.password = $req.rawData.password="REDACTED FOR SECURITY";
 				$req.data.password$array = $req.rawData.password$array=["REDACTED FOR SECURITY"];
 				Myna.log(
@@ -201,7 +203,7 @@ var fusebox={
 		// extract the receiving URL from the HTTP request
 		var receivingURL = httpReq.getRequestURL();
 		var queryString = httpReq.getQueryString();
-		if (queryString != null && queryString.length > 0)
+		if (queryString !== null && queryString.length > 0)
 			 receivingURL.append("?").append(httpReq.getQueryString());
 	
 		// verify the response; ConsumerManager needs to be the same
@@ -214,7 +216,7 @@ var fusebox={
 		// examine the verification result and extract the verified identifier
 		var verified = verification.getVerifiedId();
 		var user;
-		if (verified != null) {
+		if (verified !== null) {
 			//Myna.log("debug","openid",Myna.dump($req.data));
 			var auth_data =$session.get("auth_data");
 			var claimed_id =null;
@@ -247,7 +249,7 @@ var fusebox={
 								case "fullname":
 									
 									value.split(/\s+/).forEach(function(part,index,array){
-										if (index == 0){
+										if (index === 0){
 											if (!user.first_name) user.set_first_name(part);
 										} else if (index == array.length-1){
 											if (!user.last_name) user.set_last_name(part);
@@ -275,7 +277,7 @@ var fusebox={
 								break;
 								case "fullname":
 									value.split(/\s+/).forEach(function(part,index,array){
-										if (index == 0){
+										if (index === 0){
 											obj.first_name = part; 	
 										}
 										else if (index == array.length-1){

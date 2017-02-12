@@ -8,8 +8,11 @@
 	authenticated against one of the defined AuthTypes (see: <AuthAdapters>) 
 	
 	Parameters:
-		whiteList		-	*Optional, default []*
+		whitelist		-	*Optional, default []*
 							Array of action names that do not require authentication
+		anyUserList		-	*Optional, default []*
+							Array of action names that do not require a specific right, 
+							but do require an authenticated user
 		providers		-	*Optional, default <Myna.Permissions.getAuthTypes>*
 							Array of provider names (AuthTypes) to make available from authentication,
 		redirectParams	-	*Optional, default {}*
@@ -167,7 +170,7 @@ function _mynaAuth(action, params){
 					Myna.log(
 						"debug",
 						"Auth fail for Action " + right + ", User " + user.first_name +" "+ user.last_name,
-						Myna.dump(my.options.whitelist, "MynaAuth whitelist")
+						Myna.dump(my.options.whitelist, "MynaAuth whitelist")+ Myna.dump(my.options.anyUserList, "MynaAuth anyUserList") 
 					);	
 				}
 				if (hasRight(appname,"full_admin_access")) return;
@@ -178,12 +181,15 @@ function _mynaAuth(action, params){
 				user = my.options.userFunction(this,my.options);
 				//if we got here shouldn't have
 				if (user){
+					/*jshint ignore:start*/
 					Myna.log(
 						"auth",
+						
 						<ejs>
 							User '<%=user.first_name%> <%=user.last_name%>' does not have access to <%=right%>
 						</ejs>
 					);
+					/*jshint ignore:end*/
 				}
 				throw new Error("You do not have access to that feature")
 			}

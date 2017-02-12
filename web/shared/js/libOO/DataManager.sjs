@@ -1578,7 +1578,35 @@ if (!Myna) var Myna={}
 			(end)
 			
 			*/
+		/* Property: alias
+			Alias for this manger, usually a TitleCased model name
+		
+			*/	
+		/* Property: associations
+			A structure containing details about related models
 			
+			The structure looks like this:
+			(code)
+				[hasOne|hasMany|hasBridgeTo|belongsTo]
+					|-> [Alias]
+						|-> name (table name)
+						|-> alias (model name, alternate name)
+						|-> local_key (column in this table)
+						|-> foreign_key (column in related table)
+
+			(end)
+
+			See:
+				* <hasOne>
+				* <hasMany>
+				* <hasBridgeTo>
+				* <hasBelongsTo>
+		
+			*/
+		/* Property: [related tables]
+			The manager has a property for each related table name that points to that table's <Myna.DataManager.Manager> object
+		
+			*/			
 		/* Property: dm
 			The <Myna.DataManager> object that created this manager
 		
@@ -3664,6 +3692,7 @@ if (!Myna) var Myna={}
 									return relatedBean.getData(depth-1);
 								})
 							}else{
+								Myna.printConsole(alias,bean.data.toJson());
 								result[alias] = bean[alias]().getData(depth-1)
 							}
 						})
