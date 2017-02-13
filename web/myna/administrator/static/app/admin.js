@@ -77,7 +77,15 @@ Ext.override(Ext.view.AbstractView, {
 							text:"&nbsp;".repeat(10)
 						},{
 							xtype:"tbtext",
-							text:'Version: ' +version
+							text:'Current Version: ' +version
+						},{
+							xtype:"tbtext",
+							style:{
+								color:"green",
+								"font-weight":"bold"
+							},
+							text:'Latest Version ' +latestVersion,
+							hidden:version == latestVersion
 						},{
 							text:"Logout",
 							iconCls:"icon_logout",
@@ -2465,6 +2473,9 @@ Ext.override(Ext.view.AbstractView, {
 				}
 			}) */
 			
+			if (version != latestVersion){
+				U.infoMsg("New version {0} available!<br/><br/>See Upgrade Myna menu.",latestVersion)
+			}
 			
 		}
 		

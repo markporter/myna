@@ -3,7 +3,7 @@ function _upgrade(version){
 	var javaHome		= java.lang.System.getProperty("java.home");
 	var pathSep 		= java.lang.System.getProperty("path.separator");
 	var fileSep 		= java.lang.System.getProperty("file.separator");
-	var hasWatchdog = java.lang.System.getProperty("myna.hasWatchdog") != null;
+	var hasWatchdog = java.lang.System.getProperty("myna.hasWatchdog") !== null;
 	var web_inf =new Myna.File("/WEB-INF").javaFile.toString() + fileSep;
 	var webroot =new Myna.File("/").javaFile.toString() + fileSep;
 	
@@ -45,7 +45,7 @@ function _upgrade(version){
 	
 	process.waitFor();
 	result.exitCode = process.exitValue();
-	if (result.exitCode ==0 && String(result.errors).length ==0){
+	if (result.exitCode === 0 && String(result.errors).length === 0){
 		new Myna.File("/WEB-INF",version + ".war").forceDelete();
 		if (java.lang.System.getProperty("myna.hasWatchdog")){
 			new Myna.Thread(function(){
@@ -55,17 +55,22 @@ function _upgrade(version){
 				
 			},[])
 		}
-		return <ejs>
+
+		return (/* jshint ignore:start */
+		 <ejs>
 			<b>Myna Upgrade (<%=version%>) Complete</b>
 			<h2>Server is restarting if watchdog is supported</h2>
 			<pre><%=result.output%></pre>
 		</ejs>
+		/* jshint ignore:end */)
 	} else {
-		return <ejs>
+		return (/* jshint ignore:start */
+		 <ejs>
 			<b>Myna Upgrade (<%=version%>) Failed</b>
 			<pre><%=result.errors%></pre><p>
 			<pre><%=result.output%></pre><p>
 		</ejs>
+		/* jshint ignore:end */)
 			
 	}
 	
@@ -75,11 +80,12 @@ function _upgrade(version){
 
 function web(params){
 	$req.timeout=0
+	var url ="https://github.com/markporter/myna/releases/download/{version}/myna-{version}.war".format(params)
 	var con =new Myna.HttpConnection({
-		url:"https://downloads.sourceforge.net/project/myna/" + params.version +".war",
+		url:url,
 		method:"GET"
 	});		
-	Myna.printConsole("https://downloads.sourceforge.net/project/myna/" + params.version +".war");	
+	Myna.printConsole("Downloading new myna version: " +url);	
 	con.connect()
 	var f = new Myna.File("/WEB-INF/" + params.version +".war")
 	Myna.JavaUtils.streamCopy(con.getResponseStream(),f.getOutputStream(),true)

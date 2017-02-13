@@ -72,7 +72,9 @@
 			}
 		}).call();*/
 
-		var latestVersion = new Myna.Cache({
+
+
+		/*var latestVersion = new Myna.Cache({
 			name:"myna_downloads_sf_rss_feed",
 			refreshInterval:Date.getInterval(Date.HOUR,1),
 			code:function getLatestVersion(){
@@ -93,7 +95,8 @@
 				//return node.title.toString().listLast("/").listBefore(".");
 			}
 		}).call();
-
+		*/
+		var latestVersion = this.getLatestVersion().version
 		
 		var props=Myna.getGeneralProperties();
 		this.set("globalProperties",{
@@ -117,7 +120,42 @@
 		$session.clear()
 		$cookie.clearAuthUserId()
 	}
-	
+
+/* Function: getLatestVersion
+	returns the latest version of Myna and the download link
+	*/
+	function getLatestVersion(){
+		var latestVersion = new Myna.File("/WEB-INF/myna/latestVersion")
+		var versionInfo={
+			version:$server.version,
+			download_url:"https://github.com/markporter/myna/releases/download/{0}/myna-{0}.war".format($server.version)
+		}
+		if (!latestVersion.exists || Date.diff(latestVersion.lastModified,new Date(),Date.HOUR) > 12){
+
+			var con = new Myna.HttpConnection({
+				url:"https://api.github.com/repos/markporter/myna/releases/latest",
+				method:"GET"
+			});
+			try{
+				var resp = con.connect().getResponseText().parseJson()
+				
+				
+				versionInfo = {
+					version:resp.tag_name,
+					download_url:resp.assets.first().browser_download_url
+				}	
+				latestVersion.writeString(versionInfo.toJson())
+			} catch(e){
+
+			}
+				
+
+		} else{
+			versionInfo = latestVersion.readString().parseJson()
+		}
+		
+		return versionInfo
+	}
 /* Function:  */
 function extLoad(params){
 	this.setLayout(false)
