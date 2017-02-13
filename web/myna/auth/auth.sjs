@@ -151,6 +151,7 @@ var fusebox={
 						rawData.callback+="?"
 					}
 					rawData.callback+="auth_token=" + Myna.Permissions.getAuthToken(user.user_id).escapeUrl()
+					rawData.callback+="&auth_provider=" + $req.data.provider
 					//metaRedirect
 					$res.metaRedirect(rawData.callback);
 					

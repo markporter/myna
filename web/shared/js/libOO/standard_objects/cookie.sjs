@@ -141,7 +141,29 @@ var $cookie={
 		.encrypt(Myna.Permissions.getAuthKey("myna_auth_cookie"))*/
 		
 		$cookie.set("myna_auth_cookie",cookie_data,cookieOptions);
+		if ($req.data.auth_provider) {
+			this.setAuthProvider($req.data.auth_provider);
+		}
 		$cookie.__authCleared = false;
+	},
+	/* Function: setAuthProvider
+		sets a cookie (myna_last_provider) that contains the last AuthAdapter used by this user for this application
+		
+		Parameters:
+			auth_type	- provider name that this user should be re-authenticated with
+								
+		Returns:	
+			void
+			
+		Detail:
+			this is a plain text AuthType name that can be used with <Myna.Permissions.getAuthAdapter> 
+			
+	*/
+	setAuthProvider:function(auth_type,cookieOptions){
+		if (!cookieOptions) cookieOptions={};
+		if (!cookieOptions.path) cookieOptions.path=$application.url;
+		if (!cookieOptions.expireSeconds) cookieOptions.expireSeconds=Date.getInterval(Date.DAY,1)/1000
+		$cookie.set("myna_last_provider",auth_type,cookieOptions);
 	},
 	/* Function: clearAuthUserId
 		Clears the "myna_auth_cookie". Equivalent to 
