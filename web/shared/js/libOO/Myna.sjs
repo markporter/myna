@@ -691,6 +691,7 @@ if (!Myna) var Myna={}
 	Parameters:
 		cmd		-	String.
 					Command to execute, along with any paramters
+		...     -   Any number of string parameters
 		options	-	*Optional, default {}*
 					extra options. See *Options* below
 
@@ -701,6 +702,8 @@ if (!Myna) var Myna={}
 
 	See Also:
 	* <String.prototype.pipe>
+
+	Returns a string with extra properties for "errors" output and "exitCode"
 	
 	Example:
 	(code)
@@ -718,6 +721,12 @@ if (!Myna) var Myna={}
 		Myna.println(result.exitCode);
 		Myna.println(result.errors;
 
+		//call with explicit params and using the string properties
+		var netinfo = Myna.exec("netstat","-a","-p","-n","-t");
+		Myna.println(netinfo);
+		Myna.println(netinfo.exitCode);
+		Myna.println(netinfo.errors;		
+
 		//Using String.pipe();
 
 		var sortedFiles = Myna.exec("ls -a",{dir:"/"}).pipe("egrep -v ~").pipe("sort -h");
@@ -725,28 +734,126 @@ if (!Myna) var Myna={}
 
 
 	*/	
-	Myna.exec = function exec(cmd,options) {
-		options = options||{};
-		options.input=options.input||null;
-		options.env=options.env||{};
-		if (options.dir){
-			options.env.PWD = new Myna.File(options.dir).javaFile.toString();
-		} else {
-			options.env.PWD = new Myna.File($server.currentDir).javaFile.toString();
-		}
+	Myna.exec = function(){
+		//public static Map<String,Object> exec(String cmd, String input, Map<String,String> envProperties) throws IOException, InterruptedException {
+        var args = Array.parse(arguments)
+        if (typeof args.last() === "object"){
+            options = args.pop()
+        }
 
-		var retval =  $server_gateway.exec(cmd,options.input,options.env)
-		retval =Myna.JavaUtils.mapToObject(retval);
+        options = options||{};
+        options.input=options.input||null;
+        options.env=options.env||{};
+        if (options.dir){
+            options.env.PWD = new Myna.File(options.dir).javaFile
+        } else {
+            options.env.PWD = new Myna.File($server.currentDir).javaFile
+        }
 
-		var output = retval.output
-		
-		retval.forEach(function (v,k) {
-			if (k != "output"){
-				options[k] = v;
-			}
-		})
-		return output
+        var cmdArray = args.length>1?args:args.first().split(/ /).reduce(function (result,token) {
+            if (result.inQuote){
+                result.push(result.pop() + " " + token)
+                if (token.endsWith('"') && !token.right(2) !='\\"' ){
+                    result.inQuote = false
+                }
+            } else {
+                if (token.startsWith('"')){
+                    result.inQuote =true;
+                }   
+                result.push(token)
+            }
+            
+            return result
+        },[])
+
+        // Set up initial process.
+        processBuilder = new java.lang.ProcessBuilder(cmdArray);
+
+        
+        if (options) {
+            // If a working directory is present, use it.
+            
+            
+            processBuilder.directory(options.env.PWD);
+            
+
+            // Set up ENV variables.
+            var environment = processBuilder.environment();
+            environment.clear();
+            options.env.forEach(function (v,k) {
+                environment.put(k, String(v));
+            })
+        }
+
+        
+        var exception;
+
+        // Collect output.
+        var outBuffer;
+        var outThread = new java.lang.Thread(new java.lang.Runnable() {
+            run:function() {
+                outBuffer = Myna.JavaUtils.streamToString(process.getInputStream())
+                // buffer = Myna.JavaUtils.createCharArray(1024);
+                // try {
+                // 	var inputStream = new java.io.InputStreamReader();
+                //     for (var length; (length = inputStream.read(buffer, 0, buffer.length)) != -1; ) {
+                //         outBuffer.append(buffer, 0, length);
+                //     }
+                // } catch (ex) {
+                //     exception=ex;
+                // }
+            }
+        }, "$EXEC output");
+
+        // Collect errors.
+        var errBuffer;
+        var errThread = new java.lang.Thread(new java.lang.Runnable() {
+            run:function() {
+                errBuffer = Myna.JavaUtils.streamToString(process.getErrorStream())
+            }
+        }, "$EXEC error");
+        // Start the process.
+        var process = processBuilder.start();
+        
+
+        // If input is present, pass on to process.
+        try {
+            var outputStream = new java.io.OutputStreamWriter(process.getOutputStream());
+        	if (options.input) {
+                outputStream.write(options.input);
+                outputStream.flush();
+                
+            } 
+
+            outputStream.close();
+        } catch (ex) {
+            // Process was not expecting input.  May be normal state of affairs.
+        }
+        // Start gathering output.
+        outThread.start();
+        errThread.start();
+
+        // Wait for the process to complete.
+        
+        var exitCode = process.waitFor();
+        outThread.join();
+        errThread.join();
+        var result = new String(outBuffer.toString() ||"");
+        result.exitCode = exitCode;
+        result.errors = new String(errBuffer.toString() ||"")
+        
+        if (exception) {
+            throw exception;
+        }
+
+        // Return the result from stdout.
+        if (options.meta){
+            options.meta.exitCode = result.exitCode
+            options.meta.errors = result.errors
+        }
+        return result;
 	}
+	
 /* Function: executeShell 
 	Executes a shell command/script
 	 
