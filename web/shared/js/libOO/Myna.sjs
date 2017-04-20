@@ -30,9 +30,9 @@ if (!Myna) var Myna={}
 		<Myna.dump>
 	*/
 	Myna.abort=function Myna_abort(label,value){
-		if (value != undefined){
+		if (value !== undefined){
 			this.print(Myna.dump(value,label));
-		} else if (label != undefined){
+		} else if (label !== undefined){
 			this.print("<hr>" +label);
 		}
 		if ($req) $req.handled=true;
@@ -232,7 +232,7 @@ if (!Myna) var Myna={}
 	Myna.dump=function Myna_dump(obj,label,maxDepth){
 		var result,	// string result that will be returned
 			d;		// recursive dump function
-		if (maxDepth == undefined) maxDepth=4;
+		if (maxDepth === undefined) maxDepth=4;
 		if (label) {
 			label = label;
 		}
@@ -588,7 +588,7 @@ if (!Myna) var Myna={}
 	*/	
 	Myna.dumpText=function Myna_dump(obj,label,maxDepth){
 		var result=[];
-		if (maxDepth == undefined) maxDepth=4;
+		if (maxDepth === undefined) maxDepth=4;
 		var itemToken = "+-";
 		var lastItemToken = "\\-";
 		var levelToken = "| ";
@@ -753,7 +753,7 @@ if (!Myna) var Myna={}
         var cmdArray = args.length>1?args:args.first().split(/ /).reduce(function (result,token) {
             if (result.inQuote){
                 result.push(result.pop() + " " + token)
-                if (token.endsWith('"') && !token.right(2) !='\\"' ){
+                if (token.endsWith('"') && token.right(2) !='\\"' ){
                     result.inQuote = false
                 }
             } else {
@@ -790,6 +790,7 @@ if (!Myna) var Myna={}
 
         // Collect output.
         var outBuffer;
+		/* jshint ignore:start */
         var outThread = new java.lang.Thread(new java.lang.Runnable() {
             run:function() {
                 outBuffer = Myna.JavaUtils.streamToString(process.getInputStream())
@@ -804,14 +805,18 @@ if (!Myna) var Myna={}
                 // }
             }
         }, "$EXEC output");
+		/* jshint ignore:end */
 
         // Collect errors.
         var errBuffer;
+		/* jshint ignore:start */
         var errThread = new java.lang.Thread(new java.lang.Runnable() {
             run:function() {
                 errBuffer = Myna.JavaUtils.streamToString(process.getErrorStream())
             }
         }, "$EXEC error");
+		/* jshint ignore:end */
+
         // Start the process.
         var process = processBuilder.start();
         
@@ -930,11 +935,12 @@ if (!Myna) var Myna={}
 			
 			process.waitFor();
 			result.exitCode = process.exitValue();
-			if (result.exitCode ==0 && String(result.errors).length ==0){
+			if (result.exitCode ===0 && String(result.errors).length ===0){
 				scriptFile.forceDelete();
 			} else {
 				if (result.errors.trim().length){
-					Myna.log("Error","Error in Myna.executeShell\n{0}".format(result.errors),<ejs>
+					Myna.log("Error","Error in Myna.executeShell\n{0}".format(result.errors),(/* jshint ignore:start */
+					<ejs>
 						<b>Shell Command:</b><br>
 						<pre><%=shellCommand%></pre><p>
 						
@@ -949,7 +955,8 @@ if (!Myna) var Myna={}
 						
 						<b>ScriptPath:</b><br>
 						<pre><%=result.file%></pre><p>
-					</ejs>);	
+					</ejs>
+					/* jshint ignore:end */));	
 				}
 			}
 		} 
@@ -1023,10 +1030,11 @@ if (!Myna) var Myna={}
 			process.waitFor();
 			result.exitCode = process.exitValue();
 		}
-		if (result.exitCode < 1 && String(result.errors).length ==0){
+		if (result.exitCode < 1 && String(result.errors).length ===0){
 			scriptFile.forceDelete();
 		} else {
-			Myna.log("Error","Error in Myna.executeWinBatch",<ejs>
+			Myna.log("Error","Error in Myna.executeWinBatch",(/* jshint ignore:start */
+			<ejs>
 				<b>Shell Command:</b><br>
 				
 				<b>Script:</b><br>
@@ -1040,7 +1048,8 @@ if (!Myna) var Myna={}
 				
 				<b>ScriptPath:</b><br>
 				<pre><%=result.file%></pre><p>
-			</ejs>);	
+			</ejs>
+			/* jshint ignore:end */));	
 		}
 		return result;
 		
@@ -2004,7 +2013,7 @@ if (!Myna) var Myna={}
         
         var javaException = e.rhinoException;
         var prefix = "";
-        while (javaException != null) {
+        while (javaException !== null) {
             array = array.concat(dumpOne(javaException, prefix))
             javaException = javaException.getCause();
             prefix = "Caused by: ";
@@ -2256,8 +2265,9 @@ if (!Myna) var Myna={}
 	(end)
 	*/
 	Myna.threadSafeSet = function(scope,prop,func){
+		var o;
 		if ("set" in scope && "get" in scope){
-			var o = scope.get(prop);
+			o = scope.get(prop);
 			if (o !== null) {
 				return o;
 			} else {
@@ -2354,6 +2364,7 @@ if (!Myna) var Myna={}
 	 
 	*/
 	Myna.xmlToObject=function xmlToObject(xml){
+		var node,attribute;
 		if (xml instanceof XMLList){
 			var nodeArray = [];
 			for each (node in xml){
@@ -2361,7 +2372,7 @@ if (!Myna) var Myna={}
 			}
 			return nodeArray;
 		} else if (xml.nodeKind() == "element") {
-			var node = {
+			node = {
 				name:xml.name().localName,
 				namespace:xml.name().uri,
 				attributes:{},
@@ -2439,7 +2450,7 @@ if (!Myna) var Myna={}
 		
 		if (typeof input == "string"){
 			input = input.trim();
-			if (/^\</.test(input)){//assume XML String
+			if (/^</.test(input)){//assume XML String
 				doc = input.toXmlDoc();
 				type = "doc"
 				
