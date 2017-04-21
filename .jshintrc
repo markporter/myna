@@ -1,0 +1,25 @@
+{
+    "multistr": true,
+    "asi": true,
+    "evil": true,
+    "regexdash": true,
+    "browser": true,
+    "scripturl": false,
+    "laxbreak": true,
+    "esnext": true,
+    "wsh": true,
+    "trailing": false,
+    "undef": false,
+    "unused": false,
+    "sub": true,
+    "moz": true,
+    "globals": {
+        "Myna": true,
+        "$req": true,
+        "$res": true,
+        "$cookie": true,
+        "$server": true,
+        "server_gateway": true,
+        "java": true
+    }
+}
