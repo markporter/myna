@@ -1335,6 +1335,42 @@ if (!Myna) var Myna={}
 		return curThread.threadScope;
 	}
 	
+/* Function: getStackLine 
+	returns an array of strings representing each line of the javascript stack 
+	in the supplied error object
+	 
+	Parameters: 
+		offset -    *default: 0*
+                    Ofset from this line
+ 
+	Detail: 
+		This funcition parses the current stack and returns an object in the form off {file:"", line:999, func:""}
+	 
+	*/
+	Myna.getStackLine=function Myna_getStackLine(offset){
+        var dummy,result={
+            file:"",
+            line:0,
+            func:""
+        }
+        try{
+            throw new Error()
+        }catch(e){
+			try{
+				var targetLine=Myna.parseJsStack(e)[(offset||0)+1]
+				var parts= targetLine.match(/at (\S+):(\d+) ?\(?([^\)]+)\)?/)
+				result.file = parts[1]
+				result.line = parts[2]
+				result.func = parts[3]
+			} catch(e2){
+			
+			}
+            
+        }
+        return result;
+		
+	}
+
 /* Function: include 
 	executes a .js, .sjs, or .ejs file in the current thread
 	 
@@ -1835,12 +1871,12 @@ if (!Myna) var Myna={}
 					),
 					{}
 				)
-				
+				var lineDetail=Myna.getStackLine(2);
 				try{
 					logger.log({
+						event_ts:now,
 						app_name:app_name,
 						detail:detail,
-						event_ts:now,
 						hostname:$server.hostName,
 						instance_id:$server.instance_id,
 						label:String(label).left(255),
@@ -1849,7 +1885,10 @@ if (!Myna) var Myna={}
 						purpose:$server.purpose,
 						request_elapsed:req_elapsed,
 						request_id:reqId,
-						type:type
+						type:type,
+						file:lineDetail.file,
+						line:lineDetail.line,
+						func:lineDetail.func,
 					})
 				} catch(e){
 					if (!/isAlive/.test(e.message)){
@@ -2115,6 +2154,7 @@ if (!Myna) var Myna={}
 	 
 	*/
 	Myna.printDump=function Myna_printDump(obj,label,maxDepth){
+		this.println("Called from {file}:{line}".format(Myna.getStackLine(2)))
 		if ($server.isCommandline){
 			this.println(Myna.dumpText(obj,label,maxDepth));
 		} else {
@@ -2149,6 +2189,7 @@ if (!Myna) var Myna={}
 		text		-	If provided this will be printed after the header
 	*/
 	Myna.printConsole=function(header,text){
+		
 		var out = java.lang.System.out;
 		if (text !== undefined){
 			header = "[Myna/" + $server.instance_id+" "+ new Date().format("Y/m/d H:i:s") + "] - " + header +" "
@@ -2157,6 +2198,7 @@ if (!Myna) var Myna={}
 			text = header	
 		}
 		out.println(String(text));
+		out.println("Called from {file}:{line}".format(Myna.getStackLine(1)))
 	}
 /* Function: sealObject 
 	This seals a JavaScript object, preventing it from being modified.

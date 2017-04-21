@@ -27,6 +27,7 @@
 			.replace(/<\/?[^>]+>/g," ")
 			.replace(/<\/?br\/?>/g,"\n")
 			.replace(/<\/?br\/?>/g,"\n\n")
+            .replace(/&nbsp;/g," ")
 			.replace(/_RET_/g,"\n")
 
 		var title = "[{app_name}] [{type}] {label}".format(data)

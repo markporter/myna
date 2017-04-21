@@ -33,19 +33,22 @@
 		
 		var logger = org.apache.log4j.Logger.getLogger("info.emptybrain.myna.MynaThread")
 		var title = "[{app_name}] [{type}] {label}".format(data)
-		var body = <ejs>
-			[{app_name}] [{type}] {label}
-			log_id:             {log_id}
-			request_id:         {request_id}
-			event_ts:           {event_ts}
-			hostname:           {hostname}
-			instance_id:        {instance_id}
-			purpose:            {purpose}
-			log_elapsed:		  {log_elapsed}
-			request_elapsed:    {request_elapsed}
-			detail:             
-			{detail}
-		</ejs>.format(data)
-		
+		/* jshint ignore:start */
+		var body = (
+			<ejs>
+				[{app_name}] [{type}] {label}
+				log_id:             {log_id}
+				request_id:         {request_id}
+				event_ts:           {event_ts}
+				hostname:           {hostname}
+				instance_id:        {instance_id}
+				purpose:            {purpose}
+				log_elapsed:        {log_elapsed}
+				request_elapsed:    {request_elapsed}
+				detail:             
+				{detail}
+			</ejs>
+		).format(data)
+		/* jshint ignore:end */
 		logger[data.type](body)
 	}

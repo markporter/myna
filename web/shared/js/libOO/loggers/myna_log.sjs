@@ -23,7 +23,8 @@
 		
 		new Myna.Query({
 			ds:"myna_log",
-			sql:<ejs>
+			sql:(/* jshint ignore:start */
+			<ejs>
 				insert into myna_log_general(
 					app_name,
 					detail,
@@ -51,7 +52,8 @@
 					{request_id},
 					{type}
 				)
-			</ejs>,
+			</ejs>
+			/* jshint ignore:end */),
 			values:data
 		})
 		//new Myna.DataManager("myna_log").getManager("myna_log_general").create(data)

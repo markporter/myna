@@ -204,6 +204,7 @@ public class MynaServer extends Thread
 		
 		
 		if (hasWatchdog){
+			System.setProperty("logFile",logFile);
 			runAsServer();
 		} else {//run as watchdog and spawn a separate process
 			runAsWatchdog();
