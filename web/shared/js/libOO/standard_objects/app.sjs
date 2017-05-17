@@ -1437,12 +1437,19 @@ var $application={
 		$profiler.end("$application import");
 	},
 	/* Function: loadClass
-		Loads a class from this application's JAVALIB fodler
+		Loads a class from this application's JAVALIB folder using a an app specific classloader
 		
 		Parameters:
-			obj	-	an object with a close() function
+			name		-	The fully qualified name of the class you want to load
+			wrapClss	-	*Default true* if true, returns a Javascript wrapper for this class, 
+							like you would get form the native Rhino classloader 
+							(Packages.com.exmaple.ClassName) if _wrapClass_  === false, returns 
+							raw output from the classloader.
 		Detail:
-			if a subfolder called JAVALIB is defined and contains .jar files, this function will load a class from one of those Jars
+			if a subfolder called JAVALIB is defined and contains .jar files, this function will 
+			load a class from one of those Jars. Because this uses a completely independent
+			classloader, all dependencies of that class must also be in that folder, and can be 
+			different version than in the main Myna lib directory
 
 		Example:
 		(code)
@@ -1466,7 +1473,6 @@ var $application={
 
 		}
 		this._cl = cl;
-		//check out Class.forName(name, true/false, cl)
 		var cls = cl.loadClass(name);
 
 		if (wrapClass === false){
