@@ -736,7 +736,8 @@ if (!Myna) var Myna={}
 	*/	
 	Myna.exec = function(){
 		//public static Map<String,Object> exec(String cmd, String input, Map<String,String> envProperties) throws IOException, InterruptedException {
-        var args = Array.parse(arguments)
+        var options;
+		var args = Array.parse(arguments)
         if (typeof args.last() === "object"){
             options = args.pop()
         }
