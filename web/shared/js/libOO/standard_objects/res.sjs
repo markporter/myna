@@ -315,7 +315,7 @@ var $res = {
 		
 		var codes =javax.servlet.http.HttpServletResponse;
 		var ranges=[];
-		if (!file.exists()){
+		if (!file.exists() ||/\/JAVALIB\//i.test(file.toString()) ){
 			$application._onError404()
 			Myna.log("404","$res.serveFile: file " + file + " does not exist",Myna.dump($req.data));
 			/*throw new Error("Filename does not exist"); */
@@ -325,7 +325,6 @@ var $res = {
 		
 		//clear any existing content
 		$res.clear();
-		
 		var fs = new net.balusc.webapp.FileServer(
 			file.javaFile,
 			$server.servlet,

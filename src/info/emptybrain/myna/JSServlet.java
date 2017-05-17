@@ -168,6 +168,9 @@ public class JSServlet extends HttpServlet {
 					if (scriptPath.matches("^.*WEB-INF.*$")){
 						res.sendError(403,"Access Denied.");	
 						return;
+					} else if (scriptPath.matches("^.*JAVALIB.*$")){
+						res.sendError(403,"Access Denied.");	
+						return;
 					} else {
 						new net.balusc.webapp.FileServer(
 							file,

@@ -997,7 +997,7 @@ var $application={
 			}
 			var originalCurrentDir =$server_gateway.currentDir;
 			$server_gateway.currentDir=$application.directory
-		
+
 			this.onApplicationStart();
 		
 			$server_gateway.currentDir=originalCurrentDir;
@@ -1435,5 +1435,49 @@ var $application={
 				}
 			} 
 		$profiler.end("$application import");
+	},
+	/* Function: loadClass
+		Loads a class from this application's JAVALIB fodler
+		
+		Parameters:
+			obj	-	an object with a close() function
+		Detail:
+			if a subfolder called JAVALIB is defined and contains .jar files, this function will load a class from one of those Jars
+
+		Example:
+		(code)
+			// all of HTMLUnit's jars should be in this applications JAVALIB directory
+			var WebClient = $application.loadClass("com.gargoylesoftware.htmlunit.WebClient");
+			var BrowserVersion = $application.loadClass("com.gargoylesoftware.htmlunit.BrowserVersion")
+			var bv = BrowserVersion.getField("FIREFOX_3_6").get(BrowserVersion);
+			var client = WebClient.getConstructor(BrowserVersion).newInstance(bv);
+		(end)
+	*/
+	loadClass:function loadClass(name,wrapClass){
+		var cl = $server.get("APP:{appName}:CLASSLOADER".format(this))
+		
+		if (!cl){
+			cp = new Myna.File(this.directory + "/JAVALIB");
+			var jars= cp.listFiles("jar",true).map(function(f){
+				return new java.net.URL(f.toString());
+			});
+			cl = $server.set("APP:{appName}:CLASSLOADER".format(this),new java.net.URLClassLoader(jars));
+			
+
+		}
+		this._cl = cl;
+		//check out Class.forName(name, true/false, cl)
+		var cls = cl.loadClass(name);
+
+		if (wrapClass === false){
+			return cls;
+		} else {
+			return new org.mozilla.javascript.NativeJavaClass(
+				$server_gateway.requestScope,
+				cls,
+				true
+			);
+		}
+
 	},
 }
