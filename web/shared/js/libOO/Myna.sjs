@@ -766,6 +766,7 @@ if (!Myna) var Myna={}
             
             return result
         },[])
+		
 
         // Set up initial process.
         processBuilder = new java.lang.ProcessBuilder(cmdArray);

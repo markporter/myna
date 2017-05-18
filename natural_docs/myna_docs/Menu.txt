@@ -89,6 +89,7 @@ Group: Myna Object  {
 
       File: log4j.sjs  (/home/mark/Dropbox/Mark/linux_shared/myna/web/shared/js/libOO/loggers/log4j.sjs)
       File: myna_log.sjs  (/home/mark/Dropbox/Mark/linux_shared/myna/web/shared/js/libOO/loggers/myna_log.sjs)
+      File: splunk.sjs  (/home/mark/Dropbox/Mark/linux_shared/myna/web/shared/js/libOO/loggers/splunk.sjs)
       File: standard_output.sjs  (/home/mark/Dropbox/Mark/linux_shared/myna/web/shared/js/libOO/loggers/standard_output.sjs)
       File: unix_syslog.sjs  (/home/mark/Dropbox/Mark/linux_shared/myna/web/shared/js/libOO/loggers/unix_syslog.sjs)
       }  # Group: Loggers
